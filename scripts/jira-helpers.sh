@@ -10,10 +10,10 @@ _jira_curl() {
 }
 
 jira_validate_token() {
-    local status
-    status=$(_jira_curl -o /dev/null -w "%{http_code}" "${JIRA_BASE_URL}/rest/api/3/myself")
-    if [[ "$status" != "200" ]]; then
-        echo "ERROR: Jira authentication failed (HTTP $status). Check ~/.config/bijoux/jira.env" >&2
+    local http_status
+    http_status=$(_jira_curl -o /dev/null -w "%{http_code}" "${JIRA_BASE_URL}/rest/api/3/myself")
+    if [[ "$http_status" != "200" ]]; then
+        echo "ERROR: Jira authentication failed (HTTP $http_status). Check ~/.config/bijoux/jira.env" >&2
         return 1
     fi
     echo "Jira authentication OK"
