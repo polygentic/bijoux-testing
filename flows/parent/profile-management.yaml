@@ -1,0 +1,32 @@
+# jira: BA-XXX
+# uat: UAT-7.1 Parent Profile — View and Navigate
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "onboarding-get-started-button"
+- tapOn:
+    id: "login-email-field"
+- inputText: "parent-sarah@test.bijoux.app"
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+- tapOn:
+    id: "login-submit-button"
+- assertVisible:
+    text: "Good"
+    timeout: 10000
+- tapOn:
+    id: "tab-profile"
+- assertVisible: "Sarah"
+- takeScreenshot: results/parent-profile-hub
+- tapOn:
+    id: "profile-hub-edit-link"
+- assertVisible: "Save Changes"
+- takeScreenshot: results/parent-edit-profile
+- back
+- tapOn:
+    id: "profile-hub-preferences-link"
+- assertVisible: "Save Preferences"
+- takeScreenshot: results/parent-preferences
