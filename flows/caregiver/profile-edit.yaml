@@ -1,0 +1,27 @@
+# jira: BA-XXX
+# uat: UAT-7.2 Caregiver Profile — View and Navigate
+appId: polygentic.bijouxCaregiverApp
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "onboarding-get-started-button"
+- tapOn:
+    id: "login-email-field"
+- inputText: "cg-emma@test.bijoux.app"
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+- tapOn:
+    id: "login-submit-button"
+- assertVisible:
+    text: "Good"
+    timeout: 10000
+- tapOn:
+    id: "tab-preferences"
+- assertVisible: "Emma"
+- takeScreenshot: results/caregiver-preferences
+- tapOn:
+    id: "preferences-edit-profile-link"
+- assertVisible: "Save Changes"
+- takeScreenshot: results/caregiver-edit-profile

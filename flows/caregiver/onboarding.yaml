@@ -1,0 +1,12 @@
+# jira: BA-XXX
+# uat: UAT-1.2 Caregiver Onboarding — Happy Path
+appId: polygentic.bijouxCaregiverApp
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Get Started"
+- takeScreenshot: results/caregiver-onboarding-start
+- tapOn:
+    id: "onboarding-get-started-button"
+- assertVisible: "Welcome back"
+- takeScreenshot: results/caregiver-onboarding-complete

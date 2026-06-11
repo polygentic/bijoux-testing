@@ -1,0 +1,22 @@
+# jira: BA-XXX
+# uat: UAT-2.2 Caregiver Login — Valid Credentials
+appId: polygentic.bijouxCaregiverApp
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "onboarding-get-started-button"
+- assertVisible: "Welcome back"
+- tapOn:
+    id: "login-email-field"
+- inputText: "cg-emma@test.bijoux.app"
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+- takeScreenshot: results/caregiver-login-filled
+- tapOn:
+    id: "login-submit-button"
+- assertVisible:
+    text: "Good"
+    timeout: 10000
+- takeScreenshot: results/caregiver-login-success
