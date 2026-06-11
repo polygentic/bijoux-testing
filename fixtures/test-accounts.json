@@ -1,0 +1,31 @@
+{
+  "parent": {
+    "email": "parent-sarah@test.bijoux.app",
+    "password": "Test1234!",
+    "firstName": "Sarah",
+    "lastName": "Mitchell"
+  },
+  "caregiver": {
+    "email": "cg-emma@test.bijoux.app",
+    "password": "Test1234!",
+    "firstName": "Emma",
+    "lastName": "Rodriguez"
+  },
+  "admin": {
+    "email": "admin@bijoux.app",
+    "password": "Test1234!",
+    "name": "Admin"
+  },
+  "newParentSignup": {
+    "firstName": "Test",
+    "lastName": "Parent",
+    "email": "uat-parent-{{timestamp}}@test.bijoux.app",
+    "password": "Test1234!"
+  },
+  "newCaregiverSignup": {
+    "firstName": "Test",
+    "lastName": "Caregiver",
+    "email": "uat-caregiver-{{timestamp}}@test.bijoux.app",
+    "password": "Test1234!"
+  }
+}

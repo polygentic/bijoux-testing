@@ -1,0 +1,19 @@
+{
+  "parentLogin": {
+    "greetingContains": "Good",
+    "tabCount": 3,
+    "tabs": ["Home", "Activity", "Profile"]
+  },
+  "caregiverLogin": {
+    "tabCount": 4,
+    "tabs": ["Home", "Activity", "Earnings", "Preferences"]
+  },
+  "adminDashboard": {
+    "kpiCards": ["Active Sessions", "Revenue (MTD)", "Caregivers Online", "Pending Approval"],
+    "sidebarLinks": ["Dashboard", "Bookings", "Sessions", "Caregivers", "Users", "Transactions", "Incidents", "Audit Log"]
+  },
+  "onboarding": {
+    "parentGetStartedText": "Get Started",
+    "caregiverGetStartedText": "Get Started"
+  }
+}
