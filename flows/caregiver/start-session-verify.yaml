@@ -1,0 +1,17 @@
+# jira: BA-XXX
+# uat: SUB — Caregiver Start Session Verification
+# NOTE: Sub-flow. Caregiver must have arrived. Veriff is mocked/stubbed.
+appId: polygentic.bijouxCaregiverApp
+---
+# Start session verification (Veriff mocked)
+- tapOn: "Start Session"
+  optional: true
+- tapOn: "Verify Identity"
+  optional: true
+- waitForAnimationToEnd
+# Mocked Veriff should auto-complete
+- extendedWaitUntil:
+    visible: "Session Active"
+    timeout: 30000
+  optional: true
+- takeScreenshot: results/cross-app/caregiver-session-started

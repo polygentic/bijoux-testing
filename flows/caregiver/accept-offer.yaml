@@ -1,0 +1,15 @@
+# jira: BA-XXX
+# uat: SUB — Caregiver Accept Offer
+# NOTE: This is a sub-flow. Caregiver must already be logged in, online, and have
+#       a pending offer on the home screen. The orchestration script ensures this state.
+appId: polygentic.bijouxCaregiverApp
+---
+# Wait for offer to appear on home screen (polling from backend)
+- extendedWaitUntil:
+    visible: "Accept"
+    timeout: 45000
+- takeScreenshot: results/cross-app/caregiver-offer-received
+# Accept the offer
+- tapOn: "Accept"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/caregiver-offer-accepted

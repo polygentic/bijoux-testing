@@ -1,0 +1,48 @@
+# jira: BA-117
+# uat: UAT-7.3 Preferences
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "you@example.com"
+
+- inputText: "parent-sarah@test.bijoux.app"
+
+- tapOn: "Welcome Back"
+
+- tapOn: "Enter your password"
+
+- inputText: "Test1234!"
+
+- tapOn: "Welcome Back"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- tapOn: "Profile"
+
+- waitForAnimationToEnd
+
+- tapOn: ".*Preferences.*"
+
+- waitForAnimationToEnd
+
+- takeScreenshot: preferences-screen-top
+
+- scroll
+
+- assertVisible: ".*Save Preferences.*"
+
+- takeScreenshot: preferences-screen-scrolled

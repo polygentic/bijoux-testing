@@ -1,0 +1,86 @@
+# jira: BA-306
+# uat: UAT-3.6 Setup Wizard - Incomplete profile setup flow
+appId: polygentic.bijouxCaregiverApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+# Tap Get Started on onboarding screen
+- tapOn: "Get Started"
+
+- waitForAnimationToEnd
+
+# Enter email for partial setup account
+- tapOn: "you@example.com"
+- inputText: "cg-partial@test.bijoux.app"
+
+# Dismiss keyboard
+- scroll
+
+# Tap on Welcome Back to ensure focus is off email
+- tapOn: "Welcome Back"
+
+# Reveal password field with eye toggle
+- tapOn: "Show password"
+
+# Tap password field and enter password
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+
+# Dismiss keyboard
+- scroll
+
+# Tap login submit button
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+# cg-partial has incomplete setup — verify Complete Your Profile screen
+- assertVisible: "Complete Your Profile"
+
+# Screenshot: Setup wizard landing
+- takeScreenshot: setup-wizard-landing
+
+# Step 1: Personal details form
+- scroll
+- takeScreenshot: setup-wizard-step1-personal-details
+
+# Tap Next / Continue to proceed to next step
+- tapOn: ".*Next.*|.*Continue.*"
+
+- waitForAnimationToEnd
+
+# Step 2: Address / DOB
+- takeScreenshot: setup-wizard-step2-address-dob
+
+- scroll
+
+- tapOn: ".*Next.*|.*Continue.*"
+
+- waitForAnimationToEnd
+
+# Step 3: Biometric (may be mocked/skipped in test environment)
+- takeScreenshot: setup-wizard-step3-biometric
+
+- scroll
+
+- tapOn: ".*Next.*|.*Continue.*|.*Skip.*"
+
+- waitForAnimationToEnd
+
+# Step 4: Preferences
+- takeScreenshot: setup-wizard-step4-preferences
+
+- scroll
+
+- tapOn: ".*Next.*|.*Continue.*|.*Finish.*|.*Done.*"
+
+- waitForAnimationToEnd
+
+# Step 5: Completion
+- takeScreenshot: setup-wizard-step5-completion

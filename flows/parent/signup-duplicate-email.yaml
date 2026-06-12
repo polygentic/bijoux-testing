@@ -1,0 +1,60 @@
+# jira: BA-107
+# uat: UAT-3.2 Signup Duplicate Email
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- assertVisible: "Welcome Back"
+
+- tapOn: ".*Sign Up.*|.*Create Account.*|.*Don't have an account.*"
+
+- waitForAnimationToEnd
+
+- tapOn: "First Name"
+
+- inputText: "Test"
+
+- tapOn: "Last Name"
+
+- inputText: "Parent"
+
+- tapOn:
+    text: "you@example.com"
+    optional: true
+
+- tapOn:
+    text: "Email"
+    optional: true
+
+- inputText: "parent-sarah@test.bijoux.app"
+
+- scroll
+
+- tapOn: ".*password.*"
+
+- inputText: "Test1234!"
+
+- scroll
+
+- tapOn:
+    id: "signup-submit-button"
+    optional: true
+
+- tapOn:
+    text: ".*Create Account.*|.*Sign Up.*|.*Submit.*"
+    optional: true
+
+- waitForAnimationToEnd
+
+- assertVisible: ".*already.*|.*exists.*|.*duplicate.*|.*registered.*|.*error.*"
+
+- takeScreenshot: signup-duplicate-email-error

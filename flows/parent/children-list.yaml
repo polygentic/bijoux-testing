@@ -1,0 +1,46 @@
+# jira: BA-118
+# uat: UAT-7.4 Children List
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "you@example.com"
+
+- inputText: "parent-sarah@test.bijoux.app"
+
+- tapOn: "Welcome Back"
+
+- tapOn: "Enter your password"
+
+- inputText: "Test1234!"
+
+- tapOn: "Welcome Back"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- tapOn: "Profile"
+
+- waitForAnimationToEnd
+
+- tapOn: ".*Children.*|.*My Children.*"
+
+- waitForAnimationToEnd
+
+- assertVisible: ".*Lily.*"
+
+- assertVisible: ".*Max.*"
+
+- takeScreenshot: children-list

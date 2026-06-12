@@ -1,0 +1,48 @@
+# jira: BA-116
+# uat: UAT-7.2 Profile Edit
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "you@example.com"
+
+- inputText: "parent-sarah@test.bijoux.app"
+
+- tapOn: "Welcome Back"
+
+- tapOn: "Enter your password"
+
+- inputText: "Test1234!"
+
+- tapOn: "Welcome Back"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- tapOn: "Profile"
+
+- waitForAnimationToEnd
+
+- tapOn: ".*Edit Profile.*"
+
+- waitForAnimationToEnd
+
+- takeScreenshot: profile-edit-form-top
+
+- scroll
+
+- assertVisible: ".*Save.*"
+
+- takeScreenshot: profile-edit-form-scrolled

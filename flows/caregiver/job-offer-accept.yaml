@@ -1,5 +1,8 @@
-# jira: BA-708
-# uat: UAT-7.8 Profile Edit - Verify edit form loads with pre-filled data
+# jira: BA-603
+# uat: UAT-6.3 Job Offer Accept - Verify caregiver can reach ready state
+# NOTE: Actual offer acceptance requires real-time offer from backend.
+# This test validates the caregiver can reach the ready state.
+# Full flow requires API orchestration to push an offer.
 appId: polygentic.bijouxCaregiverApp
 ---
 - launchApp:
@@ -13,9 +16,9 @@ appId: polygentic.bijouxCaregiverApp
 
 - waitForAnimationToEnd
 
-# Enter email
+# Enter email for online caregiver
 - tapOn: "you@example.com"
-- inputText: "cg-emma@test.bijoux.app"
+- inputText: "cg-maria@test.bijoux.app"
 
 # Dismiss keyboard
 - scroll
@@ -40,23 +43,18 @@ appId: polygentic.bijouxCaregiverApp
 
 - waitForAnimationToEnd
 
-# Verify home dashboard
+# Verify home dashboard loads
 - assertVisible:
     id: "home-greeting-label"
 
-# Navigate to Preferences tab (text-based tap for tab bar)
-- tapOn: "Preferences"
-
-- waitForAnimationToEnd
-
-# Tap Edit Profile
-- tapOn: ".*Edit Profile.*|.*Edit.*"
-
-- waitForAnimationToEnd
-
-# Verify edit form loads with pre-filled data (Emma's name)
-- assertVisible: "Emma"
-
-# Scroll to find Save Changes button
+# Scroll to find online toggle and go online
 - scroll
-- assertVisible: "Save Changes"
+- tapOn: ".*Go Online.*"
+
+- waitForAnimationToEnd
+
+# Verify caregiver is now online and ready to receive offers
+- assertVisible: ".*Online.*|.*Go Offline.*|.*waiting.*|.*available.*"
+
+# Take screenshot of online/ready state
+- takeScreenshot: job-offer-accept-ready-state

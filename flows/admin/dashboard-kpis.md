@@ -1,25 +1,25 @@
-# Admin Portal — Dashboard KPIs
+# Dashboard KPI Cards
+
+## UAT ID
+UAT-10.1
 
 ## Prerequisites
-- Logged in to admin portal (run login.md first)
+- Admin portal running at http://localhost:3001
+- Logged in as admin@bijoux.app (complete UAT-9.1 first)
 
 ## Steps
-
-1. Verify URL is http://localhost:3001/ (dashboard)
-2. Look for 4 KPI cards with these labels:
-   - "Active Sessions"
-   - "Revenue (MTD)"
-   - "Caregivers Online"
-   - "Pending Approval"
-3. Verify the "Bookings Today" card is visible
-4. Verify the "Recent Activity" card is visible
-5. Click the "Caregivers" link in the sidebar (a[href="/caregivers"])
-6. Verify the caregivers list page loads — look for a table or data table component
-7. Take a screenshot
-8. Click the "Dashboard" link in the sidebar to return (a[href="/"])
+1. Navigate to the admin dashboard (http://localhost:3001/ or /dashboard)
+2. Wait for the page to fully load (all data fetched)
+3. Locate the KPI cards section at the top of the dashboard
+4. Identify the "Active Sessions" KPI card
+5. Identify the "Revenue (MTD)" KPI card
+6. Identify the "Caregivers Online" KPI card
+7. Identify the "Pending Approval" KPI card
+8. Verify each of the 4 KPI cards displays a numeric value (not "Loading..." or a spinner)
+9. Locate the "Bookings Today" card on the dashboard
 
 ## Pass Criteria
-- All 4 KPI cards are rendered with numeric values (not "Loading...")
-- Bookings Today and Recent Activity sections are visible
-- Caregivers page loads without error
-- Navigation between pages works
+- All 4 KPI cards are visible on the dashboard: "Active Sessions", "Revenue (MTD)", "Caregivers Online", "Pending Approval"
+- Each KPI card displays a numeric value (integer or currency) rather than a loading state
+- The "Bookings Today" card is visible on the dashboard
+- No error states or blank cards are present

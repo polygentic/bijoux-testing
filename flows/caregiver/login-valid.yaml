@@ -1,5 +1,5 @@
-# jira: BA-708
-# uat: UAT-7.8 Profile Edit - Verify edit form loads with pre-filled data
+# jira: BA-205
+# uat: UAT-2.5 Login - Valid credentials for fully onboarded caregiver
 appId: polygentic.bijouxCaregiverApp
 ---
 - launchApp:
@@ -17,7 +17,7 @@ appId: polygentic.bijouxCaregiverApp
 - tapOn: "you@example.com"
 - inputText: "cg-emma@test.bijoux.app"
 
-# Dismiss keyboard
+# Dismiss keyboard by scrolling
 - scroll
 
 # Tap on Welcome Back to ensure focus is off email
@@ -26,7 +26,7 @@ appId: polygentic.bijouxCaregiverApp
 # Reveal password field with eye toggle
 - tapOn: "Show password"
 
-# Tap password field and enter password
+# Tap password field by accessibility ID
 - tapOn:
     id: "login-password-field"
 - inputText: "Test1234!"
@@ -40,23 +40,7 @@ appId: polygentic.bijouxCaregiverApp
 
 - waitForAnimationToEnd
 
-# Verify home dashboard
+# cg-emma is fully onboarded — verify home dashboard with greeting
 - assertVisible:
     id: "home-greeting-label"
-
-# Navigate to Preferences tab (text-based tap for tab bar)
-- tapOn: "Preferences"
-
-- waitForAnimationToEnd
-
-# Tap Edit Profile
-- tapOn: ".*Edit Profile.*|.*Edit.*"
-
-- waitForAnimationToEnd
-
-# Verify edit form loads with pre-filled data (Emma's name)
-- assertVisible: "Emma"
-
-# Scroll to find Save Changes button
-- scroll
-- assertVisible: "Save Changes"
+- takeScreenshot: results/caregiver-login-success

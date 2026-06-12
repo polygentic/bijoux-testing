@@ -1,0 +1,25 @@
+# jira: BA-105
+# uat: UAT-2.4 Login Empty Fields
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- assertVisible: "Welcome Back"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- assertVisible: ".*required.*|.*enter.*|.*error.*|.*valid.*"
+
+- takeScreenshot: login-empty-fields-error

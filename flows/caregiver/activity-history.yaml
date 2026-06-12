@@ -1,5 +1,5 @@
-# jira: BA-708
-# uat: UAT-7.8 Profile Edit - Verify edit form loads with pre-filled data
+# jira: BA-802
+# uat: UAT-8.2 Activity History - Verify activity screen loads
 appId: polygentic.bijouxCaregiverApp
 ---
 - launchApp:
@@ -44,19 +44,10 @@ appId: polygentic.bijouxCaregiverApp
 - assertVisible:
     id: "home-greeting-label"
 
-# Navigate to Preferences tab (text-based tap for tab bar)
-- tapOn: "Preferences"
+# Navigate to Activity tab (text-based tap for tab bar)
+- tapOn: "Activity"
 
 - waitForAnimationToEnd
 
-# Tap Edit Profile
-- tapOn: ".*Edit Profile.*|.*Edit.*"
-
-- waitForAnimationToEnd
-
-# Verify edit form loads with pre-filled data (Emma's name)
-- assertVisible: "Emma"
-
-# Scroll to find Save Changes button
-- scroll
-- assertVisible: "Save Changes"
+# Verify activity/history screen loads
+- assertVisible: ".*Activity.*|.*History.*|.*Sessions.*"

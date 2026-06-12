@@ -1,24 +1,44 @@
-# jira: BA-XXX
-# uat: UAT-2.1 Parent Login — Valid Credentials
+# jira: BA-115
+# uat: UAT-7.1 Profile View
 appId: polygentic.bijouxParentApp
 ---
 - launchApp:
     clearState: true
     clearKeychain: true
+
+- waitForAnimationToEnd
+
 - tapOn:
     id: "onboarding-get-started-button"
-- assertVisible: "Welcome back"
-- tapOn: "you@example.com"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "you@example.com"
+
 - inputText: "parent-sarah@test.bijoux.app"
+
 - tapOn: "Welcome Back"
+
 - tapOn: "Enter your password"
+
 - inputText: "Test1234!"
+
 - tapOn: "Welcome Back"
-- takeScreenshot: results/parent-login-filled
+
 - tapOn:
     id: "login-submit-button"
+
 - waitForAnimationToEnd
-- assertVisible:
-    id: "home-greeting-label"
-- assertVisible: "Request Now"
-- takeScreenshot: results/parent-login-success
+
+- tapOn: "Profile"
+
+- waitForAnimationToEnd
+
+- assertVisible: "Sarah Mitchell"
+
+- assertVisible: ".*Edit Profile.*"
+
+- assertVisible: ".*Preferences.*"
+
+- takeScreenshot: profile-hub

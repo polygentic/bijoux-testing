@@ -1,0 +1,61 @@
+# jira: BA-106
+# uat: UAT-3.1 Signup Happy Path
+# NOTE: The signup account parent-new@test.bijoux.app must be deleted between runs.
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- assertVisible: "Welcome Back"
+
+- tapOn: ".*Sign Up.*|.*Create Account.*|.*Don't have an account.*"
+
+- waitForAnimationToEnd
+
+- tapOn: "First Name"
+
+- inputText: "Test"
+
+- tapOn: "Last Name"
+
+- inputText: "Parent"
+
+- tapOn:
+    text: "you@example.com"
+    optional: true
+
+- tapOn:
+    text: "Email"
+    optional: true
+
+- inputText: "parent-new@test.bijoux.app"
+
+- scroll
+
+- tapOn: ".*password.*"
+
+- inputText: "Test1234!"
+
+- scroll
+
+- tapOn:
+    id: "signup-submit-button"
+    optional: true
+
+- tapOn:
+    text: ".*Create Account.*|.*Sign Up.*|.*Submit.*"
+    optional: true
+
+- waitForAnimationToEnd
+
+- assertVisible: ".*verif.*|.*OTP.*|.*code.*|.*confirm.*"
+
+- takeScreenshot: signup-verification-screen

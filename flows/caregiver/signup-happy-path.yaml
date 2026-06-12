@@ -1,0 +1,60 @@
+# jira: BA-304
+# uat: UAT-3.4 Signup - Happy path with new email
+appId: polygentic.bijouxCaregiverApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+# Tap Get Started on onboarding screen
+- tapOn: "Get Started"
+
+- waitForAnimationToEnd
+
+# From login screen, tap signup link
+- tapOn: "Sign Up"
+
+- waitForAnimationToEnd
+
+# Fill first name
+- tapOn: "First Name"
+- inputText: "Test"
+
+# Dismiss keyboard
+- scroll
+
+# Fill last name
+- tapOn: "Last Name"
+- inputText: "Caregiver"
+
+# Dismiss keyboard
+- scroll
+
+# Fill email
+- tapOn: "you@example.com"
+- inputText: "cg-new@test.bijoux.app"
+
+# Dismiss keyboard
+- scroll
+
+# Reveal password field with eye toggle
+- tapOn: "Show password"
+
+# Tap password field and enter password
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+
+# Dismiss keyboard
+- scroll
+
+# Tap submit / sign up button
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+# Assert OTP / verification screen appears
+- assertVisible: ".*verif.*"

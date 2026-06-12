@@ -1,5 +1,5 @@
-# jira: BA-708
-# uat: UAT-7.8 Profile Edit - Verify edit form loads with pre-filled data
+# jira: BA-710
+# uat: UAT-7.10 Emergency Contacts - Verify emergency contact section
 appId: polygentic.bijouxCaregiverApp
 ---
 - launchApp:
@@ -49,14 +49,8 @@ appId: polygentic.bijouxCaregiverApp
 
 - waitForAnimationToEnd
 
-# Tap Edit Profile
-- tapOn: ".*Edit Profile.*|.*Edit.*"
-
-- waitForAnimationToEnd
-
-# Verify edit form loads with pre-filled data (Emma's name)
-- assertVisible: "Emma"
-
-# Scroll to find Save Changes button
+# Scroll to find emergency contact section
 - scroll
-- assertVisible: "Save Changes"
+
+# Verify emergency contact info or add button is visible
+- assertVisible: ".*Emergency.*|.*Contact.*|.*Add.*"

@@ -1,5 +1,5 @@
-# jira: BA-708
-# uat: UAT-7.8 Profile Edit - Verify edit form loads with pre-filled data
+# jira: BA-803
+# uat: UAT-8.3 Earnings - Verify earnings screen with totals
 appId: polygentic.bijouxCaregiverApp
 ---
 - launchApp:
@@ -44,19 +44,14 @@ appId: polygentic.bijouxCaregiverApp
 - assertVisible:
     id: "home-greeting-label"
 
-# Navigate to Preferences tab (text-based tap for tab bar)
-- tapOn: "Preferences"
+# Navigate to Earnings tab (text-based tap for tab bar)
+- tapOn: "Earnings"
 
 - waitForAnimationToEnd
 
-# Tap Edit Profile
-- tapOn: ".*Edit Profile.*|.*Edit.*"
+# Verify earnings screen loads with total earned and session count
+- assertVisible: ".*Earnings.*|.*Total.*"
 
-- waitForAnimationToEnd
-
-# Verify edit form loads with pre-filled data (Emma's name)
-- assertVisible: "Emma"
-
-# Scroll to find Save Changes button
+# Scroll to verify additional earnings details
 - scroll
-- assertVisible: "Save Changes"
+- assertVisible: ".*session.*|.*earned.*|.*\\$.*"

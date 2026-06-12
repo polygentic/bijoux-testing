@@ -1,0 +1,55 @@
+# jira: BA-113
+# uat: UAT-5.3 Cancel Booking During Matching
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "you@example.com"
+
+- inputText: "parent-sarah@test.bijoux.app"
+
+- tapOn: "Welcome Back"
+
+- tapOn: "Enter your password"
+
+- inputText: "Test1234!"
+
+- tapOn: "Welcome Back"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "home-request-now-card"
+
+- waitForAnimationToEnd
+
+- scroll
+
+- tapOn: ".*Request Caregiver.*|.*Submit.*|.*Book.*"
+
+- waitForAnimationToEnd
+
+- assertVisible: ".*earch.*|.*atch.*|.*finding.*|.*looking.*"
+
+- takeScreenshot: matching-in-progress
+
+- tapOn: ".*Cancel.*|.*cancel.*"
+
+- waitForAnimationToEnd
+
+- assertVisible: "Request Now"
+
+- takeScreenshot: returned-to-home-after-cancel

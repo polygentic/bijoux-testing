@@ -1,5 +1,5 @@
-# jira: BA-708
-# uat: UAT-7.8 Profile Edit - Verify edit form loads with pre-filled data
+# jira: BA-404
+# uat: UAT-4.4 Tab Navigation - Navigate through all tabs
 appId: polygentic.bijouxCaregiverApp
 ---
 - launchApp:
@@ -40,23 +40,39 @@ appId: polygentic.bijouxCaregiverApp
 
 - waitForAnimationToEnd
 
-# Verify home dashboard
+# Verify Home tab is active (default after login)
 - assertVisible:
     id: "home-greeting-label"
 
-# Navigate to Preferences tab (text-based tap for tab bar)
+# Navigate to Activity tab (text-based tap for tab bar)
+- tapOn: "Activity"
+
+- waitForAnimationToEnd
+
+# Verify Activity screen content
+- assertVisible: ".*Activity.*|.*History.*"
+
+# Navigate to Earnings tab
+- tapOn: "Earnings"
+
+- waitForAnimationToEnd
+
+# Verify Earnings screen content
+- assertVisible: ".*Earnings.*|.*Total.*"
+
+# Navigate to Preferences tab
 - tapOn: "Preferences"
 
 - waitForAnimationToEnd
 
-# Tap Edit Profile
-- tapOn: ".*Edit Profile.*|.*Edit.*"
+# Verify Preferences screen content
+- assertVisible: ".*Preferences.*|.*Profile.*|.*Settings.*"
+
+# Navigate back to Home tab
+- tapOn: "Home"
 
 - waitForAnimationToEnd
 
-# Verify edit form loads with pre-filled data (Emma's name)
-- assertVisible: "Emma"
-
-# Scroll to find Save Changes button
-- scroll
-- assertVisible: "Save Changes"
+# Verify back on Home
+- assertVisible:
+    id: "home-greeting-label"

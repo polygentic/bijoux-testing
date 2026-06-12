@@ -1,0 +1,15 @@
+# jira: BA-XXX
+# uat: SUB — Caregiver Confirm Arrival
+# NOTE: Sub-flow. Caregiver must have accepted an offer and be in en-route state.
+appId: polygentic.bijouxCaregiverApp
+---
+# Wait for arrival confirmation screen or "I'm Here" button
+- extendedWaitUntil:
+    visible: "I'm Here"
+    timeout: 30000
+- tapOn: "I'm Here"
+  optional: true
+- tapOn: "I've Arrived"
+  optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/caregiver-arrived

@@ -1,0 +1,38 @@
+# jira: BA-103
+# uat: UAT-2.2 Login Invalid Email Format
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- assertVisible: "Welcome Back"
+
+- tapOn:
+    text: "you@example.com"
+
+- inputText: "notanemail"
+
+- tapOn: "Welcome Back"
+
+- tapOn: "Enter your password"
+
+- inputText: "Test1234!"
+
+- tapOn: "Welcome Back"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- assertVisible: ".*error.*|.*invalid.*|.*valid email.*"
+
+- takeScreenshot: login-invalid-email-error

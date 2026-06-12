@@ -1,12 +1,20 @@
-# jira: BA-XXX
-# uat: UAT-1.2 Caregiver Onboarding — Happy Path
+# jira: BA-102
+# uat: UAT-1.2 Onboarding - Verify splash and Get Started
 appId: polygentic.bijouxCaregiverApp
 ---
 - launchApp:
     clearState: true
     clearKeychain: true
+
+- waitForAnimationToEnd
+
+# Verify splash / onboarding screen shows Get Started
 - assertVisible: "Get Started"
-- takeScreenshot: results/caregiver-onboarding-start
+
+# Tap Get Started to proceed to login
 - tapOn: "Get Started"
-- assertVisible: "Welcome back"
-- takeScreenshot: results/caregiver-onboarding-complete
+
+- waitForAnimationToEnd
+
+# Verify we land on the Welcome back login screen
+- assertVisible: "Welcome Back"

@@ -1,14 +1,27 @@
-# jira: BA-XXX
-# uat: UAT-1.1 Parent Onboarding — Happy Path
+# jira: BA-101
+# uat: UAT-1.1 Onboarding Screen
 appId: polygentic.bijouxParentApp
 ---
 - launchApp:
     clearState: true
     clearKeychain: true
-- assertVisible: "Get Started"
+
+- waitForAnimationToEnd
+
 - assertVisible: "bijoux"
-- takeScreenshot: results/parent-onboarding-start
+
+- assertVisible:
+    id: "onboarding-get-started-button"
+
+- assertVisible: "Get Started"
+
+- takeScreenshot: onboarding-screen
+
 - tapOn:
     id: "onboarding-get-started-button"
-- assertVisible: "Welcome back"
-- takeScreenshot: results/parent-onboarding-complete
+
+- waitForAnimationToEnd
+
+- assertVisible: "Welcome Back"
+
+- takeScreenshot: login-screen-after-onboarding

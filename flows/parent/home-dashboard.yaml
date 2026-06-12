@@ -1,0 +1,44 @@
+# jira: BA-109
+# uat: UAT-4.1 Home Dashboard Content
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "you@example.com"
+
+- inputText: "parent-sarah@test.bijoux.app"
+
+- tapOn: "Welcome Back"
+
+- tapOn: "Enter your password"
+
+- inputText: "Test1234!"
+
+- tapOn: "Welcome Back"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- assertVisible: "Request Now"
+
+- takeScreenshot: home-dashboard-top
+
+- scroll
+
+- assertVisible:
+    id: "home-schedule-card"
+    optional: true
+
+- takeScreenshot: home-dashboard-scrolled

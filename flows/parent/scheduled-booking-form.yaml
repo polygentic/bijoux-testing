@@ -1,0 +1,49 @@
+# jira: BA-112
+# uat: UAT-5.2 Scheduled Booking Form
+appId: polygentic.bijouxParentApp
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "you@example.com"
+
+- inputText: "parent-sarah@test.bijoux.app"
+
+- tapOn: "Welcome Back"
+
+- tapOn: "Enter your password"
+
+- inputText: "Test1234!"
+
+- tapOn: "Welcome Back"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- scroll
+
+- tapOn:
+    id: "home-schedule-card"
+
+- waitForAnimationToEnd
+
+- takeScreenshot: scheduled-booking-form-top
+
+- assertVisible: ".*date.*|.*Date.*|.*time.*|.*Time.*"
+
+- assertVisible: ".*address.*|.*Address.*|.*location.*|.*Location.*"
+
+- scroll
+
+- takeScreenshot: scheduled-booking-form-scrolled
