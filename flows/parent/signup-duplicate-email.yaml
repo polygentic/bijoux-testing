@@ -15,46 +15,48 @@ appId: polygentic.bijouxParentApp
 
 - assertVisible: "Welcome Back"
 
-- tapOn: ".*Sign Up.*|.*Create Account.*|.*Don't have an account.*"
+# Tap Sign Up link
+- tapOn:
+    id: "login-signup-link"
 
 - waitForAnimationToEnd
 
-- tapOn: "First Name"
+- assertVisible: "Create Account"
 
+# Step 1: Name — tap placeholder text to focus fields
+- tapOn: "Enter your first name"
 - inputText: "Test"
 
-- tapOn: "Last Name"
-
+- tapOn: "Enter your last name"
 - inputText: "Parent"
 
-- tapOn:
-    text: "you@example.com"
-    optional: true
+- tapOn: "Continue"
 
-- tapOn:
-    text: "Email"
-    optional: true
+- waitForAnimationToEnd
 
+# Step 2: Email — use an existing account
+- tapOn: "you@example.com"
 - inputText: "parent-sarah@test.bijoux.app"
 
-- scroll
+- tapOn: "Continue"
 
-- tapOn: ".*password.*"
+- waitForAnimationToEnd
 
+# Step 3: Password
+- tapOn: "Create a password"
+- inputText: "Test1234!"
+
+- tapOn: "Re-enter your password"
 - inputText: "Test1234!"
 
 - scroll
 
 - tapOn:
-    id: "signup-submit-button"
-    optional: true
-
-- tapOn:
-    text: ".*Create Account.*|.*Sign Up.*|.*Submit.*"
-    optional: true
+    id: "signup-continue-button"
 
 - waitForAnimationToEnd
 
+# Should show duplicate/error message
 - assertVisible: ".*already.*|.*exists.*|.*duplicate.*|.*registered.*|.*error.*"
 
 - takeScreenshot: signup-duplicate-email-error

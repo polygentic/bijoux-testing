@@ -1,21 +1,25 @@
 # jira: BA-XXX
 # uat: SUB — Parent Confirm Session End
-# NOTE: Sub-flow. Parent must have an active session being ended by caregiver.
+# NOTE: Sub-flow for cross-app orchestration. NOT standalone.
 appId: polygentic.bijouxParentApp
+tags:
+  - sub-flow
 ---
 # Wait for session end confirmation prompt
-- extendedWaitUntil:
-    visible: "Session Complete"
+- assertVisible:
+    text: "Session Complete"
     timeout: 30000
-  optional: true
-- extendedWaitUntil:
-    visible: "Rate"
+    optional: true
+- assertVisible:
+    text: "Rate"
     timeout: 15000
-  optional: true
+    optional: true
 # Rate the session if prompted
-- tapOn: "5"
-  optional: true
-- tapOn: "Submit"
-  optional: true
+- tapOn:
+    text: "5"
+    optional: true
+- tapOn:
+    text: "Submit"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/parent-session-ended

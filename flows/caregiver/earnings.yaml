@@ -41,8 +41,7 @@ appId: polygentic.bijouxCaregiverApp
 - waitForAnimationToEnd
 
 # Verify home dashboard
-- assertVisible:
-    id: "home-greeting-label"
+- assertVisible: "Home"
 
 # Navigate to Earnings tab (text-based tap for tab bar)
 - tapOn: "Earnings"

@@ -40,10 +40,10 @@ appId: polygentic.bijouxCaregiverApp
 
 - waitForAnimationToEnd
 
-# Verify home dashboard shows greeting
-- assertVisible:
-    id: "home-greeting-label"
+# Verify home dashboard loaded
+- assertVisible: "Home"
 
-# Verify online/offline toggle or status indicator is visible
-- scroll
-- assertVisible: ".*online.*|.*offline.*|.*status.*|.*Go Online.*"
+# Emma has an active session — verify active session state is shown
+- assertVisible: ".*Arrived.*|.*Active.*|.*Session.*"
+
+- takeScreenshot: caregiver-home-dashboard

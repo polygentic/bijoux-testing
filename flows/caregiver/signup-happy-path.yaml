@@ -18,43 +18,40 @@ appId: polygentic.bijouxCaregiverApp
 
 - waitForAnimationToEnd
 
-# Fill first name
-- tapOn: "First Name"
+# --- Step 1: Name ---
+- tapOn: "Enter your first name"
 - inputText: "Test"
 
-# Dismiss keyboard
-- scroll
-
-# Fill last name
-- tapOn: "Last Name"
+- tapOn: "Enter your last name"
 - inputText: "Caregiver"
 
-# Dismiss keyboard
-- scroll
+- tapOn: "Continue"
 
-# Fill email
+- waitForAnimationToEnd
+
+# --- Step 2: Email ---
 - tapOn: "you@example.com"
 - inputText: "cg-new@test.bijoux.app"
 
-# Dismiss keyboard
-- scroll
+- tapOn: "Continue"
 
-# Reveal password field with eye toggle
-- tapOn: "Show password"
+- waitForAnimationToEnd
 
-# Tap password field and enter password
-- tapOn:
-    id: "login-password-field"
+# --- Step 3: Password ---
+- tapOn: "Create a password"
 - inputText: "Test1234!"
 
-# Dismiss keyboard
+- tapOn: "Re-enter your password"
+- inputText: "Test1234!"
+
 - scroll
 
-# Tap submit / sign up button
 - tapOn:
-    id: "login-submit-button"
+    id: "signup-continue-button"
 
 - waitForAnimationToEnd
 
 # Assert OTP / verification screen appears
-- assertVisible: ".*verif.*"
+- assertVisible: ".*verif.*|.*code.*|.*OTP.*"
+
+- takeScreenshot: caregiver-signup-verification

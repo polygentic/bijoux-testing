@@ -36,20 +36,47 @@ appId: polygentic.bijouxParentApp
 
 - waitForAnimationToEnd
 
+# Select a child (required for booking)
+- tapOn: ".*Lily.*"
+
 - scroll
 
-- tapOn: ".*Request Caregiver.*|.*Submit.*|.*Book.*"
+# Submit booking request — first tap triggers IDV re-verification
+- tapOn: "Request Caregiver"
 
 - waitForAnimationToEnd
 
-- assertVisible: ".*earch.*|.*atch.*|.*finding.*|.*looking.*"
+# Complete biometric re-verification (mock — just tap Capture)
+- tapOn: "Capture"
+
+- waitForAnimationToEnd
+
+# Re-submit after re-verification completes
+- scroll
+
+- tapOn: "Request Caregiver"
+
+- waitForAnimationToEnd
+
+# Wait for matching state to appear
+- waitForAnimationToEnd
+
+# Should transition to searching/matching state
+- assertVisible: ".*earch.*|.*atch.*|.*finding.*|.*looking.*|.*Searching.*|.*Finding.*"
 
 - takeScreenshot: matching-in-progress
 
+# Cancel the matching
 - tapOn: ".*Cancel.*|.*cancel.*"
 
 - waitForAnimationToEnd
 
+# Dismiss the "Search Canceled" confirmation
+- tapOn: "Dismiss"
+
+- waitForAnimationToEnd
+
+# Should return to home
 - assertVisible: "Request Now"
 
 - takeScreenshot: returned-to-home-after-cancel

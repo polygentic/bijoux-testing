@@ -31,6 +31,12 @@ export BACKEND_URL="http://localhost:3000/api/v1"
 # --- Admin Portal ---
 export ADMIN_URL="http://localhost:3001"
 
+# --- Java (required by Maestro) ---
+if [[ -d "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" ]]; then
+    export JAVA_HOME="/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home"
+    export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
 # --- Jira ---
 export JIRA_ENV_FILE="/Users/polygentic/.config/bijoux/jira.env"
 

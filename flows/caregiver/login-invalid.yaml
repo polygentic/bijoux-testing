@@ -41,4 +41,4 @@ appId: polygentic.bijouxCaregiverApp
 - waitForAnimationToEnd
 
 # Assert error message is visible
-- assertVisible: ".*error.*"
+- assertVisible: ".*Invalid.*"

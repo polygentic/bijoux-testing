@@ -44,17 +44,14 @@ appId: polygentic.bijouxCaregiverApp
 - waitForAnimationToEnd
 
 # Verify home dashboard loads
-- assertVisible:
-    id: "home-greeting-label"
+- assertVisible: "Home"
 
-# Scroll to find online toggle and go online
-- scroll
-- tapOn: ".*Go Online.*"
+# Maria is already online in the seed data, so verify the online state
+# The bottom toggle shows "Online" (not "Go Online") per AvailabilityToggle.swift
+- assertVisible: "Online"
 
-- waitForAnimationToEnd
-
-# Verify caregiver is now online and ready to receive offers
-- assertVisible: ".*Online.*|.*Go Offline.*|.*waiting.*|.*available.*"
+# Verify the greeting and waiting status
+- assertVisible: ".*Maria.*"
 
 # Take screenshot of online/ready state
 - takeScreenshot: job-offer-accept-ready-state

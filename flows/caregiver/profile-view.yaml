@@ -41,13 +41,17 @@ appId: polygentic.bijouxCaregiverApp
 - waitForAnimationToEnd
 
 # Verify home dashboard
-- assertVisible:
-    id: "home-greeting-label"
+- assertVisible: "Home"
 
 # Navigate to Preferences tab (text-based tap for tab bar)
-- tapOn: "Preferences"
+- tapOn: "Profile"
 
 - waitForAnimationToEnd
 
+# Wait for profile data to load
+- waitForAnimationToEnd
+
 # Verify profile info shows Emma's name
-- assertVisible: "Emma"
+- assertVisible: ".*Emma.*Thompson.*"
+
+- takeScreenshot: caregiver-profile-view

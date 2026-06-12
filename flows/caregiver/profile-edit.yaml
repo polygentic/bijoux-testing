@@ -41,11 +41,10 @@ appId: polygentic.bijouxCaregiverApp
 - waitForAnimationToEnd
 
 # Verify home dashboard
-- assertVisible:
-    id: "home-greeting-label"
+- assertVisible: "Home"
 
 # Navigate to Preferences tab (text-based tap for tab bar)
-- tapOn: "Preferences"
+- tapOn: "Profile"
 
 - waitForAnimationToEnd
 

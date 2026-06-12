@@ -40,7 +40,7 @@ appId: polygentic.bijouxCaregiverApp
 
 - waitForAnimationToEnd
 
-# cg-emma is fully onboarded — verify home dashboard with greeting
-- assertVisible:
-    id: "home-greeting-label"
+# cg-emma is fully onboarded — verify home screen loaded
+# (may show greeting or active session view depending on seed data)
+- assertVisible: "Home"
 - takeScreenshot: results/caregiver-login-success

@@ -1,8 +1,9 @@
 # jira: BA-XXX
 # uat: SUB — Parent Quick Booking Submit
-# NOTE: This is a sub-flow. Parent must already be logged in and on the home screen.
-#       Do NOT use launchApp here — the orchestration script handles app launch separately.
+# NOTE: Sub-flow for cross-app orchestration. NOT standalone.
 appId: polygentic.bijouxParentApp
+tags:
+  - sub-flow
 ---
 # From home screen, initiate a quick booking
 - tapOn:
@@ -11,12 +12,16 @@ appId: polygentic.bijouxParentApp
 - assertVisible: "Request Caregiver"
 - takeScreenshot: results/cross-app/parent-booking-form
 # Fill in address if field is empty
-- tapOn: "Enter address"
-  optional: true
+- tapOn:
+    text: "Enter address"
+    optional: true
 - inputText: "123 Main St, Austin, TX"
-  optional: true
 - scroll
-# Select children if needed
+# Select first child
+- tapOn:
+    text: ".*Lily.*|.*Max.*"
+    optional: true
+# Submit booking
 - tapOn: "Request Caregiver"
 - waitForAnimationToEnd
 # Should transition to matching/searching state

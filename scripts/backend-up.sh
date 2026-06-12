@@ -33,9 +33,9 @@ npx prisma migrate deploy
 echo "Seeding database..."
 npx tsx prisma/seed.ts
 
-# Seed test accounts
-echo "Seeding test accounts..."
-npx tsx scripts/seed-test-accounts.ts
+# Seed UAT test accounts + data
+echo "Seeding UAT test data..."
+npx tsx prisma/seed-uat.ts
 
 # Start backend server in background
 echo "Starting backend server..."

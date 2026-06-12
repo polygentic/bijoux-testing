@@ -18,6 +18,9 @@ build/
 # Maestro output
 ~/.maestro/tests/
 
+# Maestro screenshots (generated during test runs)
+*.png
+
 # Editor
 *.swp
 *.swo
