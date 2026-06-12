@@ -1,41 +1,81 @@
-# jira: BA-XXX
-# uat: SUB — Parent Quick Booking Submit
-# NOTE: Sub-flow for cross-app orchestration. NOT standalone.
+# Cross-app sub-flow: Parent Login + Create Quick Booking
+# Combines login-valid and quick-booking-submit into a single Maestro run
 appId: polygentic.bijouxParentApp
 tags:
-  - sub-flow
+  - cross-app
 ---
-# Bring app to foreground (preserves login state)
-- launchApp
+# --- Login Phase ---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
 - waitForAnimationToEnd
-# From home screen, initiate a quick booking
+
+- tapOn:
+    id: "onboarding-get-started-button"
+
+- waitForAnimationToEnd
+
+- tapOn: "you@example.com"
+- inputText: "parent-sarah@test.bijoux.app"
+
+- tapOn: "Welcome Back"
+
+- tapOn: "Enter your password"
+- inputText: "Test1234!"
+
+- tapOn: "Welcome Back"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- assertVisible:
+    id: "home-greeting-label"
+
+- takeScreenshot: results/cross-app/parent-logged-in
+
+# --- Create Quick Booking Phase ---
 - tapOn:
     id: "home-request-now-card"
+    optional: true
+
+- tapOn:
+    text: "Request Now"
+    optional: true
+
 - waitForAnimationToEnd
-- assertVisible: "Request Caregiver"
+
 - takeScreenshot: results/cross-app/parent-booking-form
+
 # Fill in address if field is empty
 - tapOn:
     text: "Enter address"
     optional: true
 - inputText: "123 Main St, Austin, TX"
 - scroll
+
 # Select first child
 - tapOn:
     text: ".*Lily.*|.*Max.*"
     optional: true
+
 # Submit booking
 - tapOn: "Request Caregiver"
 - waitForAnimationToEnd
+
 # Handle stubbed identity verification (if shown)
 - tapOn:
     text: "Capture"
     optional: true
 - waitForAnimationToEnd
+
 # If verification sent us back to booking form, submit again
 - tapOn:
     text: "Request Caregiver"
     optional: true
 - waitForAnimationToEnd
+
 # Should transition to matching/searching state
 - takeScreenshot: results/cross-app/parent-matching-started

@@ -1,0 +1,12 @@
+# jira: BA-XXX
+# uat: SUB — Parent View Bookings
+# NOTE: Sub-flow for cross-app orchestration. NOT standalone.
+#        Parent must already be logged in.
+appId: polygentic.bijouxParentApp
+tags:
+  - sub-flow
+---
+# Navigate to Activity tab to see bookings
+- tapOn: "Activity"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/parent-view-bookings
