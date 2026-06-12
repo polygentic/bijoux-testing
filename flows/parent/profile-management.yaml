@@ -4,29 +4,34 @@ appId: polygentic.bijouxParentApp
 ---
 - launchApp:
     clearState: true
+    clearKeychain: true
 - tapOn:
     id: "onboarding-get-started-button"
-- tapOn:
-    id: "login-email-field"
+- assertVisible: "Welcome back"
+- tapOn: "you@example.com"
 - inputText: "parent-sarah@test.bijoux.app"
-- tapOn:
-    id: "login-password-field"
+- tapOn: "Welcome Back"
+- tapOn: "Enter your password"
 - inputText: "Test1234!"
+- tapOn: "Welcome Back"
 - tapOn:
     id: "login-submit-button"
+- waitForAnimationToEnd
 - assertVisible:
-    text: "Good"
-    timeout: 10000
-- tapOn:
-    id: "tab-profile"
-- assertVisible: "Sarah"
+    id: "home-greeting-label"
+- tapOn: "Profile"
+- waitForAnimationToEnd
+- assertVisible: "Sarah Mitchell"
 - takeScreenshot: results/parent-profile-hub
-- tapOn:
-    id: "profile-hub-edit-link"
+- tapOn: "Edit Profile"
+- waitForAnimationToEnd
+- assertVisible: "Edit Profile"
+- scroll
 - assertVisible: "Save Changes"
 - takeScreenshot: results/parent-edit-profile
-- back
-- tapOn:
-    id: "profile-hub-preferences-link"
+- tapOn: "Profile"
+- waitForAnimationToEnd
+- tapOn: "Preferences"
+- waitForAnimationToEnd
 - assertVisible: "Save Preferences"
 - takeScreenshot: results/parent-preferences

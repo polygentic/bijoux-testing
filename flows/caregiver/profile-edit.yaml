@@ -1,22 +1,27 @@
 # jira: BA-XXX
 # uat: UAT-7.2 Caregiver Profile — View and Navigate
+# NOTE: Requires caregiver test account (cg-emma) to have a completed profile.
+#       Currently the account lands on "Complete Your Profile" after login.
+#       This flow will pass once the backend seed creates a fully onboarded caregiver.
 appId: polygentic.bijouxCaregiverApp
 ---
 - launchApp:
     clearState: true
-- tapOn:
-    id: "onboarding-get-started-button"
-- tapOn:
-    id: "login-email-field"
+    clearKeychain: true
+- tapOn: "Get Started"
+- tapOn: "you@example.com"
 - inputText: "cg-emma@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Show password"
 - tapOn:
     id: "login-password-field"
 - inputText: "Test1234!"
+- scroll
 - tapOn:
     id: "login-submit-button"
+- waitForAnimationToEnd
 - assertVisible:
-    text: "Good"
-    timeout: 10000
+    id: "home-greeting-label"
 - tapOn:
     id: "tab-preferences"
 - assertVisible: "Emma"

@@ -4,9 +4,9 @@ appId: polygentic.bijouxCaregiverApp
 ---
 - launchApp:
     clearState: true
+    clearKeychain: true
 - assertVisible: "Get Started"
 - takeScreenshot: results/caregiver-onboarding-start
-- tapOn:
-    id: "onboarding-get-started-button"
+- tapOn: "Get Started"
 - assertVisible: "Welcome back"
 - takeScreenshot: results/caregiver-onboarding-complete

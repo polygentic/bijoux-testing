@@ -4,6 +4,7 @@ appId: polygentic.bijouxParentApp
 ---
 - launchApp:
     clearState: true
+    clearKeychain: true
 - assertVisible: "Get Started"
 - assertVisible: "bijoux"
 - takeScreenshot: results/parent-onboarding-start

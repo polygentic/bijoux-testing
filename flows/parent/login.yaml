@@ -4,19 +4,21 @@ appId: polygentic.bijouxParentApp
 ---
 - launchApp:
     clearState: true
+    clearKeychain: true
 - tapOn:
     id: "onboarding-get-started-button"
 - assertVisible: "Welcome back"
-- tapOn:
-    id: "login-email-field"
+- tapOn: "you@example.com"
 - inputText: "parent-sarah@test.bijoux.app"
-- tapOn:
-    id: "login-password-field"
+- tapOn: "Welcome Back"
+- tapOn: "Enter your password"
 - inputText: "Test1234!"
+- tapOn: "Welcome Back"
 - takeScreenshot: results/parent-login-filled
 - tapOn:
     id: "login-submit-button"
+- waitForAnimationToEnd
 - assertVisible:
-    text: "Good"
-    timeout: 10000
+    id: "home-greeting-label"
+- assertVisible: "Request Now"
 - takeScreenshot: results/parent-login-success
