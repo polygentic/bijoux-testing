@@ -5,9 +5,8 @@ tags:
   - sub-flow
 ---
 - extendedWaitUntil:
-    visible: ".*On My Way.*|.*I'm On My Way.*|.*Confirm.*"
+    visible: "I'm On My Way"
     timeout: 15000
-- tapOn:
-    text: ".*On My Way.*|.*I'm On My Way.*|.*Confirm.*"
+- tapOn: "I'm On My Way"
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/caregiver-iomw

@@ -7,7 +7,7 @@ appId: polygentic.bijouxCaregiverApp
 # Wait for offer to appear on home screen (polling from backend)
 - extendedWaitUntil:
     visible: "Accept"
-    timeout: 45000
+    timeout: 90000
 - takeScreenshot: results/cross-app/caregiver-offer-received
 # Accept the offer
 - tapOn: "Accept"

@@ -116,6 +116,117 @@ api_wait_for_lifecycle() {
   return 1
 }
 
+# Report caregiver location. Args: token, latitude, longitude
+api_report_location() {
+  local token="$1" lat="$2" lng="$3"
+  curl -s -X PUT "${BACKEND_URL}/location/update" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${token}" \
+    -d "{\"latitude\": ${lat}, \"longitude\": ${lng}, \"accuracy\": 10}" > /dev/null 2>&1
+}
+
+# Cancel all active bookings for a parent. Args: token
+api_cancel_active_bookings() {
+  local token="$1"
+  curl -s -H "Authorization: Bearer ${token}" \
+    "${BACKEND_URL}/bookings?limit=20" 2>/dev/null \
+    | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('data', data.get('bookings', []))
+if isinstance(items, list):
+    for b in items:
+        lifecycle = b.get('lifecycle', '')
+        if lifecycle in ('matching', 'confirmed', 'matched', 'in_progress'):
+            print(b.get('id', ''))
+" 2>/dev/null | while read -r bid; do
+    if [[ -n "$bid" ]]; then
+      curl -s -X POST "${BACKEND_URL}/bookings/${bid}/cancel" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" \
+        -d '{"reason": "UAT test cleanup"}' > /dev/null 2>&1
+      echo "  Cancelled booking: $bid"
+    fi
+  done
+}
+
+# End all active sessions for a caregiver. Args: caregiver_token, [parent_token]
+# If parent_token provided, handles not_started sessions by verifying both sides first.
+api_cleanup_sessions() {
+  local cg_token="$1" parent_token="${2:-}"
+  curl -s -H "Authorization: Bearer ${cg_token}" \
+    "${BACKEND_URL}/sessions?limit=20" 2>/dev/null \
+    | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+sessions = data.get('sessions', data.get('data', []))
+if isinstance(sessions, list):
+    for s in sessions:
+        status = s.get('status', '')
+        if status in ('not_started', 'in_progress'):
+            print(f'{s.get(\"id\", \"\")}|{status}')
+" 2>/dev/null | while IFS='|' read -r sid sstatus; do
+    if [[ -n "$sid" ]]; then
+      if [[ "$sstatus" == "not_started" && -n "$parent_token" ]]; then
+        # Verify from both sides to transition to in_progress first
+        curl -s -X POST "${BACKEND_URL}/sessions/${sid}/verify/start" \
+          -H "Content-Type: application/json" -H "Authorization: Bearer ${cg_token}" -d '{}' > /dev/null 2>&1
+        curl -s -X POST "${BACKEND_URL}/sessions/${sid}/verify/start" \
+          -H "Content-Type: application/json" -H "Authorization: Bearer ${parent_token}" -d '{}' > /dev/null 2>&1
+        sleep 1
+      fi
+      curl -s -X POST "${BACKEND_URL}/sessions/${sid}/end" \
+        -H "Content-Type: application/json" -H "Authorization: Bearer ${cg_token}" -d '{}' > /dev/null 2>&1
+      echo "  Cleaned up session: $sid (was $sstatus)"
+    fi
+  done
+}
+
+# Create session from booking. Args: caregiver_token, booking_id
+api_create_session() {
+  local token="$1" booking_id="$2"
+  curl -s -X POST "${BACKEND_URL}/sessions/start" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${token}" \
+    -d "{\"bookingId\":\"${booking_id}\"}" 2>/dev/null
+}
+
+# Verify session start (auto-completes when VERIFF_ENABLED=false). Args: token, session_id
+api_verify_session_start() {
+  local token="$1" session_id="$2"
+  curl -s -X POST "${BACKEND_URL}/sessions/${session_id}/verify/start" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${token}" \
+    -d '{}' 2>/dev/null
+}
+
+# End session directly (dev mode). Args: token, session_id
+api_end_session() {
+  local token="$1" session_id="$2"
+  curl -s -X POST "${BACKEND_URL}/sessions/${session_id}/end" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${token}" \
+    -d '{}' 2>/dev/null
+}
+
+# Rate session. Args: parent_token, session_id, rating (1-5)
+api_rate_session() {
+  local token="$1" session_id="$2" rating="${3:-5}"
+  curl -s -X POST "${BACKEND_URL}/sessions/${session_id}/rate" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${token}" \
+    -d "{\"rating\":${rating}}" 2>/dev/null
+}
+
+# Add a test payment method to a parent account. Args: token, [label]
+api_add_payment_method() {
+  local token="$1" label="${2:-james}"
+  curl -s -X POST "${BACKEND_URL}/payments/methods" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${token}" \
+    -d "{\"stripePaymentMethodId\":\"pm_test_visa_4242_${label}\",\"brand\":\"visa\",\"last4\":\"4242\",\"expiryMonth\":12,\"expiryYear\":2028}" 2>/dev/null
+}
+
 # Reseed backend for clean state. No args.
 api_reseed() {
   echo "  Reseeding backend..."

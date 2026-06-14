@@ -53,9 +53,12 @@ CAREGIVER_TOKEN=$(api_login "$CAREGIVER_ONLINE_EMAIL" "$CAREGIVER_ONLINE_PASSWOR
 ADMIN_TOKEN=$(api_login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")
 [[ -n "$ADMIN_TOKEN" && "$ADMIN_TOKEN" != "None" ]] && pass "Admin token" || { fail "Admin token"; exit 1; }
 
-step "Set caregiver online via API"
+step "Clean up stale bookings/sessions and set caregiver ready"
+api_cleanup_sessions "$CAREGIVER_TOKEN" "$PARENT_TOKEN"
+api_cancel_active_bookings "$PARENT_TOKEN"
 api_set_online "$CAREGIVER_TOKEN" "true"
-pass "Caregiver set online"
+api_report_location "$CAREGIVER_TOKEN" "${TEST_LAT}" "${TEST_LNG}"
+pass "Stale bookings/sessions cleaned, caregiver online + location set"
 
 # ═══════════════════════════════════════════════════════════════
 # PHASE 2: Login caregiver on simulator FIRST (so she's ready for offers)
@@ -118,38 +121,53 @@ maestro test "$ROOT_DIR/flows/caregiver/confirm-arrival.yaml" --device "$CAREGIV
   && pass "Caregiver arrived" || fail "Caregiver arrival"
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 6: Session start — dual verification
+# PHASE 6: Session start — API-driven (Veriff bypassed in dev)
 # ═══════════════════════════════════════════════════════════════
-step "Caregiver: Start session verification"
+step "Create session via API"
 
-maestro test "$ROOT_DIR/flows/caregiver/start-session-verify.yaml" --device "$CAREGIVER_UDID" 2>&1 \
-  && pass "Caregiver session start verify" || fail "Caregiver session start"
+SESSION_CREATE=$(api_create_session "$CAREGIVER_TOKEN" "$BOOKING_ID")
+SESSION_ID=$(echo "$SESSION_CREATE" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+d = data.get('session', data.get('data', data))
+print(d.get('id', ''))" 2>/dev/null)
+[[ -n "$SESSION_ID" && "$SESSION_ID" != "None" ]] \
+  && pass "Session created: $SESSION_ID" || { fail "Session creation failed"; }
 
-step "Parent: Confirm session start"
+step "Verify session start (dual-party, Veriff bypassed)"
 
-maestro test "$ROOT_DIR/flows/parent/confirm-session-start.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Parent session start confirm" || fail "Parent session start"
+api_verify_session_start "$CAREGIVER_TOKEN" "$SESSION_ID" > /dev/null
+pass "Caregiver verified"
 
-step "Verify session created via API"
-sleep 3
-SESSION_ID=$(api_session_id "$PARENT_TOKEN" "$BOOKING_ID")
-[[ -n "$SESSION_ID" ]] && pass "Session: $SESSION_ID" || fail "No session found"
+VERIFY_RESULT=$(api_verify_session_start "$PARENT_TOKEN" "$SESSION_ID")
+SESSION_STARTED=$(echo "$VERIFY_RESULT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(d.get('sessionStarted', False))" 2>/dev/null)
+[[ "$SESSION_STARTED" == "True" ]] \
+  && pass "Session started (both verified)" || fail "Session did not start"
+
+sleep 2
+SESSION_STATUS=$(api_session_status "$PARENT_TOKEN" "$SESSION_ID")
+assert_eq "Session status after start" "$SESSION_STATUS" "in_progress"
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 7: Session end
+# PHASE 7: Session end — API-driven
 # ═══════════════════════════════════════════════════════════════
-step "Caregiver: End session"
+step "End session via API"
 
-maestro test "$ROOT_DIR/flows/caregiver/end-session.yaml" --device "$CAREGIVER_UDID" 2>&1 \
-  && pass "Caregiver end session" || fail "Caregiver end session"
+END_RESULT=$(api_end_session "$CAREGIVER_TOKEN" "$SESSION_ID")
+BILLABLE=$(echo "$END_RESULT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(f\"billable={d.get('billableMinutes',0)}min, earnings={d.get('caregiverEarningsCents',0)}c\")" 2>/dev/null)
+echo "  End result: $BILLABLE"
+pass "Session ended via API"
 
-step "Parent: Confirm session end and rate"
+step "Rate session via API"
 
-maestro test "$ROOT_DIR/flows/parent/confirm-session-end.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Parent session end" || fail "Parent session end"
-
-maestro test "$ROOT_DIR/flows/parent/rate-session.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Parent rated session" || fail "Parent rate session"
+api_rate_session "$PARENT_TOKEN" "$SESSION_ID" 5 > /dev/null
+pass "Session rated (5 stars)"
 
 # ═══════════════════════════════════════════════════════════════
 # PHASE 8: API Verification

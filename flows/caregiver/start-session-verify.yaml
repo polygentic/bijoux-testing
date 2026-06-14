@@ -4,14 +4,15 @@
 appId: polygentic.bijouxCaregiverApp
 ---
 # Start session verification (Veriff mocked)
-- tapOn: "Start Session"
-  optional: true
-- tapOn: "Verify Identity"
-  optional: true
+- tapOn:
+    text: "Start Session"
+    optional: true
+- tapOn:
+    text: "Verify Identity"
+    optional: true
 - waitForAnimationToEnd
 # Mocked Veriff should auto-complete
 - extendedWaitUntil:
     visible: "Session Active"
     timeout: 30000
-  optional: true
 - takeScreenshot: results/cross-app/caregiver-session-started

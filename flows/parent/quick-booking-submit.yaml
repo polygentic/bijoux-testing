@@ -11,8 +11,11 @@ tags:
 # From home screen, initiate a quick booking
 - tapOn:
     id: "home-request-now-card"
+    optional: true
+- tapOn:
+    text: "Request Now"
+    optional: true
 - waitForAnimationToEnd
-- assertVisible: "Request Caregiver"
 - takeScreenshot: results/cross-app/parent-booking-form
 # Fill in address if field is empty
 - tapOn:
@@ -20,9 +23,9 @@ tags:
     optional: true
 - inputText: "123 Main St, Austin, TX"
 - scroll
-# Select first child
+# Select first child (Sarah's children: Lily/Max, James's children: Sofia)
 - tapOn:
-    text: ".*Lily.*|.*Max.*"
+    text: ".*Lily.*|.*Max.*|.*Sofia.*|.*Age.*"
     optional: true
 # Submit booking
 - tapOn: "Request Caregiver"

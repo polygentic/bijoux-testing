@@ -9,10 +9,14 @@ tags:
 
 - waitForAnimationToEnd
 
-- tapOn:
-    id: "onboarding-get-started-button"
+- tapOn: "Get Started"
 
 - waitForAnimationToEnd
+
+# Wait for login screen to load (second sim can be slow)
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 30000
 
 - tapOn: "you@example.com"
 - inputText: "parent-james@test.bijoux.app"
@@ -24,12 +28,16 @@ tags:
 
 - tapOn: "Welcome Back"
 
-- tapOn:
-    id: "login-submit-button"
+- tapOn: "Log In"
 
 - waitForAnimationToEnd
 
-- assertVisible:
-    id: "home-greeting-label"
+# Dismiss iOS "Save Password?" dialog if it appears
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+
+- assertVisible: "Home"
 
 - takeScreenshot: results/cross-app/parent-james-logged-in

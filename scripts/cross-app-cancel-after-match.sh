@@ -20,8 +20,11 @@ step "Setup"
 PARENT_TOKEN=$(api_login "$PARENT_EMAIL" "$PARENT_PASSWORD")
 CG_TOKEN=$(api_login "$CAREGIVER_ONLINE_EMAIL" "$CAREGIVER_ONLINE_PASSWORD")
 ADMIN_TOKEN=$(api_login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")
+api_cleanup_sessions "$CG_TOKEN" "$PARENT_TOKEN"
+api_cancel_active_bookings "$PARENT_TOKEN"
 api_set_online "$CG_TOKEN" "true"
-pass "Tokens + caregiver online"
+api_report_location "$CG_TOKEN" "${TEST_LAT}" "${TEST_LNG}"
+pass "Tokens + cleanup + caregiver online"
 
 step "Login caregiver"
 maestro test "$ROOT_DIR/flows/caregiver/login-maria.yaml" --device "$CAREGIVER_UDID" 2>&1 || { fail "CG login"; exit 1; }

@@ -23,12 +23,8 @@ appId: polygentic.bijouxCaregiverApp
 # Tap on Welcome Back to ensure focus is off email
 - tapOn: "Welcome Back"
 
-# Reveal password field with eye toggle
-- tapOn: "Show password"
-
-# Tap password field by accessibility ID
-- tapOn:
-    id: "login-password-field"
+# Tap password field by hint text
+- tapOn: "Enter your password"
 - inputText: "Test1234!"
 
 # Dismiss keyboard
@@ -38,6 +34,12 @@ appId: polygentic.bijouxCaregiverApp
 - tapOn:
     id: "login-submit-button"
 
+- waitForAnimationToEnd
+
+# Dismiss iOS "Save Password?" dialog if it appears
+- tapOn:
+    text: "Not Now"
+    optional: true
 - waitForAnimationToEnd
 
 # cg-emma is fully onboarded — verify home screen loaded

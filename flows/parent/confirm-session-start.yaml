@@ -6,10 +6,9 @@ tags:
   - sub-flow
 ---
 # Wait for session start verification prompt
-- assertVisible:
-    text: "Verify"
+- extendedWaitUntil:
+    visible: "Verify"
     timeout: 30000
-    optional: true
 - tapOn:
     text: "Verify"
     optional: true
