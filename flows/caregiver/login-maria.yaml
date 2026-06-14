@@ -1,0 +1,38 @@
+# uat: Caregiver Login — Maria Santos (second caregiver)
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - cross-app
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn: "Get Started"
+
+- waitForAnimationToEnd
+
+- tapOn: "you@example.com"
+- inputText: "cg-maria@test.bijoux.app"
+
+- scroll
+
+- tapOn: "Welcome Back"
+
+- tapOn: "Show password"
+
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+
+- scroll
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- assertVisible: "Home"
+
+- takeScreenshot: results/cross-app/caregiver-maria-logged-in

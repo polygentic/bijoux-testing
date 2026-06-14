@@ -1,0 +1,12 @@
+# uat: SUB — Parent Verify Caregiver Matched
+# NOTE: Sub-flow. Parent must be on matching/searching screen.
+appId: polygentic.bijouxParentApp
+tags:
+  - sub-flow
+---
+# Wait for caregiver match (real matching engine — may take 10-30s)
+- extendedWaitUntil:
+    visible: ".*Caregiver Found.*|.*Found.*|.*matched.*"
+    timeout: 90000
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/parent-caregiver-found
