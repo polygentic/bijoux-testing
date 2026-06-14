@@ -25,7 +25,7 @@ api_booking_lifecycle() {
     | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-d = data.get('data', data)
+d = data.get('booking', data.get('data', data))
 print(d.get('lifecycle', d.get('status', '')))" 2>/dev/null
 }
 
@@ -51,9 +51,9 @@ api_session_id() {
     | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-d = data.get('data', data)
+d = data.get('booking', data.get('data', data))
 s = d.get('session', {})
-print(s.get('id', ''))" 2>/dev/null
+print(s.get('id', '') if s else '')" 2>/dev/null
 }
 
 # Get session status. Args: token, session_id
@@ -64,7 +64,7 @@ api_session_status() {
     | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-d = data.get('data', data)
+d = data.get('session', data.get('data', data))
 print(d.get('status', ''))" 2>/dev/null
 }
 
