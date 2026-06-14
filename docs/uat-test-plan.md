@@ -187,6 +187,10 @@ Comprehensive user acceptance testing for the Bijoux platform covering the paren
 | UAT-19.1 | Full Booking Lifecycle | All | `scripts/cross-app-booking-lifecycle.sh` | parent/login-valid, parent/quick-booking-submit, caregiver/login-valid, caregiver/accept-offer, caregiver/confirm-arrival, caregiver/start-session-verify, parent/confirm-session-start, caregiver/end-session, parent/confirm-session-end + API calls |
 | UAT-19.2 | Booking Cancellation — Cross-Platform | Parent + Admin | `scripts/cross-app-booking-cancel.sh` | parent/login-valid + API booking creation + API admin cancellation + parent/activity-history |
 | UAT-19.3 | Caregiver Approval — End-to-End | Caregiver + Admin | `scripts/cross-app-caregiver-approval.sh` | API BG check + API IDV + API approve + temporary maestro login flow for cg-pending |
+| UAT-19.4 | Real E2E Matching — Happy Path | All | `scripts/cross-app-real-matching-e2e.sh` | Real matching engine, no simulate |
+| UAT-19.5 | Multi-Caregiver Decline→Accept | All | `scripts/cross-app-decline-then-accept.sh` | Emma declines, Maria accepts |
+| UAT-19.6 | Multi-Parent Concurrent | All | `scripts/cross-app-multi-parent.sh` | Sarah + James book, Emma + Maria accept |
+| UAT-19.7 | Cancel After Match + Fee | Parent + CG | `scripts/cross-app-cancel-after-match.sh` | Cancel after IOMW, verify fee |
 
 ---
 
@@ -212,8 +216,8 @@ Comprehensive user acceptance testing for the Bijoux platform covering the paren
 | Admin Trust | 3 | — | 3 | — | — |
 | Admin Audit/Settings | 5 | — | 5 | — | — |
 | Admin Search | 1 | — | 1 | — | — |
-| Cross-App | 3 | — | — | 3 | — |
-| **TOTAL** | **78** | **38** | **37** | **3** | **0** |
+| Cross-App | 7 | — | — | 7 | — |
+| **TOTAL** | **82** | **38** | **37** | **7** | **0** |
 
 ## Known Limitations
 
