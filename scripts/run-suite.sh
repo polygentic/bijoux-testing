@@ -97,6 +97,8 @@ resolve_device() {
     echo "$PARENT_UDID"
   elif [[ "$flow_path" == *"/caregiver/"* ]]; then
     echo "$CAREGIVER_UDID"
+  elif [[ "$flow_path" == *"/cross-app/"* ]]; then
+    echo "$PARENT_UDID"
   else
     echo ""
   fi
