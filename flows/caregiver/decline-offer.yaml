@@ -1,0 +1,19 @@
+# uat: SUB — Caregiver Decline Offer
+# NOTE: Sub-flow. Caregiver must have a pending offer visible.
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - sub-flow
+---
+- extendedWaitUntil:
+    visible: ".*Decline.*|.*No Thanks.*"
+    timeout: 45000
+- takeScreenshot: results/cross-app/caregiver-offer-before-decline
+- tapOn:
+    text: ".*Decline.*|.*No Thanks.*"
+- waitForAnimationToEnd
+# Confirm decline if prompted
+- tapOn:
+    text: ".*Confirm.*|.*Yes.*|.*Decline.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/caregiver-offer-declined
