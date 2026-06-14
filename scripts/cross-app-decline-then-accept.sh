@@ -91,17 +91,25 @@ step "Verify offer statuses via API"
 ADMIN_TOKEN=$(api_login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")
 OFFERS=$(curl -s -H "Authorization: Bearer ${ADMIN_TOKEN}" \
   "${BACKEND_URL}/admin/bookings/${BOOKING_ID}" 2>/dev/null)
-echo "$OFFERS" | python3 -c "
+OFFER_RESULT=$(echo "$OFFERS" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 d = data.get('data', data)
 offers = d.get('offers', d.get('matchOffers', []))
+has_declined = False
+has_accepted = False
 if isinstance(offers, list):
     for o in offers:
         name = o.get('caregiver', {}).get('firstName', o.get('caregiverId', ''))
         status = o.get('status', '')
-        print(f'  Offer: {name} → {status}')
-" 2>/dev/null || echo "  Could not parse offers (admin endpoint may differ)"
+        print(f'  Offer: {name} -> {status}')
+        if status in ('declined', 'rejected'): has_declined = True
+        if status in ('accepted', 'confirmed'): has_accepted = True
+print(f'declined={has_declined},accepted={has_accepted}')
+" 2>/dev/null)
+echo "$OFFER_RESULT"
+echo "$OFFER_RESULT" | grep -q "declined=True" && pass "At least one offer declined" || fail "No declined offer found"
+echo "$OFFER_RESULT" | grep -q "accepted=True" && pass "At least one offer accepted" || fail "No accepted offer found"
 
 echo ""
 echo "═══ DECLINE-THEN-ACCEPT — $( [[ $FAILURES -eq 0 ]] && echo "PASS ✓" || echo "FAIL ($FAILURES)" ) ═══"

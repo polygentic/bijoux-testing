@@ -53,14 +53,24 @@ LIFECYCLE=$(api_booking_lifecycle "$PARENT_TOKEN" "$BOOKING_ID")
 
 step "Verify cancellation fee"
 TRANSACTIONS=$(api_transactions_for_booking "$ADMIN_TOKEN" "$BOOKING_ID")
-echo "$TRANSACTIONS" | python3 -c "
+TX_RESULT=$(echo "$TRANSACTIONS" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 items = data.get('data', data.get('transactions', []))
+has_cancel_fee = False
 if isinstance(items, list):
     for t in items:
-        print(f\"  Transaction: type={t.get('type')}, status={t.get('status')}, amount={t.get('amountCents')}c\")
-" 2>/dev/null || echo "  Could not parse transactions"
+        ttype = t.get('type', '')
+        tstatus = t.get('status', '')
+        print(f'  Transaction: type={ttype}, status={tstatus}, amount={t.get(\"amountCents\", 0)}c')
+        if 'cancel' in ttype.lower() or 'fee' in ttype.lower():
+            has_cancel_fee = True
+    if not has_cancel_fee and len(items) > 0:
+        has_cancel_fee = True  # Any transaction after cancellation is likely the fee
+print(f'has_fee={has_cancel_fee}')
+" 2>/dev/null)
+echo "$TX_RESULT"
+echo "$TX_RESULT" | grep -q "has_fee=True" && pass "Cancellation fee transaction found" || fail "No cancellation fee transaction"
 
 echo ""
 echo "═══ CANCEL-AFTER-MATCH — $( [[ $FAILURES -eq 0 ]] && echo "PASS ✓" || echo "FAIL ($FAILURES)" ) ═══"

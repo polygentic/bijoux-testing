@@ -96,6 +96,42 @@ echo "  Booking 1: $L1, Booking 2: $L2"
 [[ "$L1" == "completed" ]] && pass "Booking 1 completed" || fail "Booking 1: $L1"
 [[ "$L2" == "completed" ]] && pass "Booking 2 completed" || fail "Booking 2: $L2"
 
+# Verify sessions
+S1=$(api_session_id "$P1_TOKEN" "$BOOKING_1")
+S2=$(api_session_id "$P2_TOKEN" "$BOOKING_2")
+[[ -n "$S1" ]] && pass "Session 1: $S1" || fail "No session for booking 1"
+[[ -n "$S2" ]] && pass "Session 2: $S2" || fail "No session for booking 2"
+
+if [[ -n "$S1" ]]; then
+  SS1=$(api_session_status "$P1_TOKEN" "$S1")
+  [[ "$SS1" == "completed" ]] && pass "Session 1 completed" || fail "Session 1: $SS1"
+fi
+if [[ -n "$S2" ]]; then
+  SS2=$(api_session_status "$P2_TOKEN" "$S2")
+  [[ "$SS2" == "completed" ]] && pass "Session 2 completed" || fail "Session 2: $SS2"
+fi
+
+# Verify transactions for both bookings
+step "Verify transactions"
+for i in 1 2; do
+  local_booking_var="BOOKING_${i}"
+  local_booking="${!local_booking_var:-}"
+  if [[ -z "$local_booking" ]]; then continue; fi
+  TX=$(api_transactions_for_booking "$ADMIN_TOKEN" "$local_booking")
+  HAS_CAPTURE=$(echo "$TX" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('data', data.get('transactions', []))
+if isinstance(items, list):
+    for t in items:
+        if t.get('type') == 'capture' and t.get('status') == 'succeeded':
+            print('yes')
+            sys.exit(0)
+print('no')
+" 2>/dev/null)
+  [[ "$HAS_CAPTURE" == "yes" ]] && pass "Booking $i has captured transaction" || fail "Booking $i missing capture transaction"
+done
+
 echo ""
 echo "═══ MULTI-PARENT — $( [[ $FAILURES -eq 0 ]] && echo "PASS ✓" || echo "FAIL ($FAILURES)" ) ═══"
 [[ $FAILURES -eq 0 ]] && exit 0 || exit 1
