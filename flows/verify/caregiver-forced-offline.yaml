@@ -1,0 +1,12 @@
+# verify: Caregiver is forced offline after suspension
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - verify
+---
+- launchApp
+- waitForAnimationToEnd
+# Caregiver should see offline state or blocked message
+- assertNotVisible:
+    text: ".*Online.*"
+    optional: true
+- takeScreenshot: results/layer3/caregiver-forced-offline

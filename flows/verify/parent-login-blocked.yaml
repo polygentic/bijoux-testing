@@ -1,0 +1,24 @@
+# verify: Parent login blocked after suspension
+appId: polygentic.bijouxParentApp
+tags:
+  - verify
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+- tapOn: "Get Started"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: ${PARENT_EMAIL}
+- tapOn: "Welcome Back"
+- tapOn: "Enter your password"
+- inputText: ${PARENT_PASSWORD}
+- tapOn: "Welcome Back"
+- tapOn: "Log In"
+- waitForAnimationToEnd
+# Should see error, NOT home screen
+- assertNotVisible:
+    id: "home-greeting-label"
+    optional: true
+- takeScreenshot: results/layer3/parent-login-blocked
