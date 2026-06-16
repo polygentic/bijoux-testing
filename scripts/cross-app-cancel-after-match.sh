@@ -6,11 +6,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$ROOT_DIR/config/environment.sh"
 source "$ROOT_DIR/scripts/lib/api-helpers.sh"
+source "$ROOT_DIR/scripts/lib/state-helpers.sh"
 
 [[ -z "$PARENT_UDID" ]] && echo "ERROR: PARENT_UDID not set" >&2 && exit 1
 [[ -z "$CAREGIVER_UDID" ]] && echo "ERROR: CAREGIVER_UDID not set" >&2 && exit 1
 
 mkdir -p "$ROOT_DIR/results/cross-app"
+
+state_init
+state_set "metadata.layer1_script" "cross-app-cancel-after-match"
+
 FAILURES=0; STEP=0
 step()  { STEP=$((STEP + 1)); echo ""; echo "═══ STEP $STEP: $1 ═══"; }
 pass()  { echo "  ✓ PASS: $1"; }
@@ -35,6 +40,7 @@ maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$P
 sleep 3
 BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
 pass "Booking: $BOOKING_ID"
+state_append_booking "$BOOKING_ID" "Sarah" "" "matching"
 
 step "Caregiver accepts + IOMW"
 sleep 5
@@ -53,6 +59,8 @@ step "Verify cancellation"
 sleep 2
 LIFECYCLE=$(api_booking_lifecycle "$PARENT_TOKEN" "$BOOKING_ID")
 [[ "$LIFECYCLE" == "cancelled" ]] && pass "Booking cancelled" || fail "Not cancelled: $LIFECYCLE"
+state_set "bookings[0].lifecycle" "cancelled"
+state_append_cancellation "$BOOKING_ID" "UAT cancel-after-match test"
 
 step "Verify cancellation fee"
 TRANSACTIONS=$(api_transactions_for_booking "$ADMIN_TOKEN" "$BOOKING_ID")

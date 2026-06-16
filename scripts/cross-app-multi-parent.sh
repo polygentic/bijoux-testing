@@ -17,6 +17,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 source "$ROOT_DIR/config/environment.sh"
 source "$ROOT_DIR/scripts/lib/api-helpers.sh"
+source "$ROOT_DIR/scripts/lib/state-helpers.sh"
 
 [[ -z "$PARENT_UDID" ]] && echo "ERROR: PARENT_UDID not set" >&2 && exit 1
 [[ -z "${PARENT_UDID_2:-}" ]] && echo "ERROR: PARENT_UDID_2 not set" >&2 && exit 1
@@ -24,6 +25,10 @@ source "$ROOT_DIR/scripts/lib/api-helpers.sh"
 [[ -z "${CAREGIVER_UDID_2:-}" ]] && echo "ERROR: CAREGIVER_UDID_2 not set" >&2 && exit 1
 
 mkdir -p "$ROOT_DIR/results/cross-app"
+
+state_init
+state_set "metadata.layer1_script" "cross-app-multi-parent"
+
 FAILURES=0; STEP=0
 step()  { STEP=$((STEP + 1)); echo ""; echo "═══ STEP $STEP: $1 ═══"; }
 pass()  { echo "  ✓ PASS: $1"; }
@@ -59,6 +64,7 @@ maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$P
 sleep 3
 BOOKING_1=$(api_latest_booking_id "$P1_TOKEN")
 pass "Booking 1: $BOOKING_1"
+state_append_booking "$BOOKING_1" "Sarah" "Emma" "matching"
 
 step "Emma: Accept Sarah's offer"
 sleep 5
@@ -115,6 +121,7 @@ maestro test "$ROOT_DIR/flows/parent/quick-booking-submit.yaml" --device "$PAREN
 sleep 3
 BOOKING_2=$(api_latest_booking_id "$P2_TOKEN")
 pass "Booking 2: $BOOKING_2"
+state_append_booking "$BOOKING_2" "James" "Maria" "matching"
 
 step "Maria: Accept James's offer"
 sleep 5
@@ -145,6 +152,8 @@ L2=$(api_booking_lifecycle "$P2_TOKEN" "$BOOKING_2")
 echo "  Booking 1: $L1, Booking 2: $L2"
 [[ "$L1" == "completed" ]] && pass "Booking 1 completed" || fail "Booking 1: $L1"
 [[ "$L2" == "completed" ]] && pass "Booking 2 completed" || fail "Booking 2: $L2"
+state_set "bookings[0].lifecycle" "completed"
+state_set "bookings[1].lifecycle" "completed"
 
 [[ -n "$S1" ]] && pass "Session 1: $S1" || fail "No session for booking 1"
 [[ -n "$S2" ]] && pass "Session 2: $S2" || fail "No session for booking 2"

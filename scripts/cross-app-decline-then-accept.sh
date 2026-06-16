@@ -13,12 +13,17 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 source "$ROOT_DIR/config/environment.sh"
 source "$ROOT_DIR/scripts/lib/api-helpers.sh"
+source "$ROOT_DIR/scripts/lib/state-helpers.sh"
 
 [[ -z "$PARENT_UDID" ]] && echo "ERROR: PARENT_UDID not set" >&2 && exit 1
 [[ -z "$CAREGIVER_UDID" ]] && echo "ERROR: CAREGIVER_UDID not set" >&2 && exit 1
 [[ -z "${CAREGIVER_UDID_2:-}" ]] && echo "ERROR: CAREGIVER_UDID_2 not set. Create 4 sims first." >&2 && exit 1
 
 mkdir -p "$ROOT_DIR/results/cross-app"
+
+state_init
+state_set "metadata.layer1_script" "cross-app-decline-then-accept"
+
 FAILURES=0; STEP=0
 step()  { STEP=$((STEP + 1)); echo ""; echo "═══ STEP $STEP: $1 ═══"; }
 pass()  { echo "  ✓ PASS: $1"; }
@@ -60,6 +65,7 @@ maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$P
 sleep 3
 BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
 pass "Booking: $BOOKING_ID"
+state_append_booking "$BOOKING_ID" "Sarah" "" "matching"
 
 # Phase 4: Emma declines
 step "Wait for offers, Emma declines"
@@ -104,6 +110,8 @@ sleep 3
 FINAL=$(api_booking_lifecycle "$PARENT_TOKEN" "$BOOKING_ID")
 echo "  Final lifecycle: $FINAL"
 [[ "$FINAL" == "completed" ]] && pass "Booking completed" || fail "Booking not completed: $FINAL"
+state_set "bookings[0].caregiver" "Maria"
+state_set "bookings[0].lifecycle" "completed"
 
 step "Verify offer statuses via API"
 ADMIN_TOKEN=$(api_login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")

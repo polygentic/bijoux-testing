@@ -17,12 +17,16 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 source "$ROOT_DIR/config/environment.sh"
 source "$ROOT_DIR/scripts/lib/api-helpers.sh"
+source "$ROOT_DIR/scripts/lib/state-helpers.sh"
 
 # ─── Validate prerequisites ──────────────────────────────────
 [[ -z "$PARENT_UDID" ]] && echo "ERROR: PARENT_UDID not set" >&2 && exit 1
 [[ -z "$CAREGIVER_UDID" ]] && echo "ERROR: CAREGIVER_UDID not set" >&2 && exit 1
 
 mkdir -p "$ROOT_DIR/results/cross-app"
+
+state_init
+state_set "metadata.layer1_script" "cross-app-real-matching-e2e"
 
 FAILURES=0
 STEP=0
@@ -85,6 +89,7 @@ step "Get booking ID from API"
 sleep 3
 BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
 [[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || { fail "No booking found"; exit 1; }
+state_append_booking "$BOOKING_ID" "Sarah" "" "matching"
 
 # ═══════════════════════════════════════════════════════════════
 # PHASE 4: Wait for matching engine, caregiver accepts on sim
@@ -101,6 +106,8 @@ step "Verify booking matched via API"
 LIFECYCLE=$(api_wait_for_lifecycle "$PARENT_TOKEN" "$BOOKING_ID" "matched" 10)
 [[ "$LIFECYCLE" == "matched" || "$LIFECYCLE" == "confirmed" ]] \
   && pass "Booking matched (lifecycle: $LIFECYCLE)" || fail "Booking not matched (lifecycle: $LIFECYCLE)"
+state_set "bookings[0].caregiver" "Maria"
+state_set "bookings[0].lifecycle" "matched"
 
 step "Parent: Verify caregiver found on simulator"
 
@@ -133,6 +140,7 @@ d = data.get('session', data.get('data', data))
 print(d.get('id', ''))" 2>/dev/null)
 [[ -n "$SESSION_ID" && "$SESSION_ID" != "None" ]] \
   && pass "Session created: $SESSION_ID" || { fail "Session creation failed"; }
+state_append_session "$SESSION_ID" "$BOOKING_ID" "not_started"
 
 step "Verify session start (dual-party, Veriff bypassed)"
 
@@ -177,6 +185,8 @@ sleep 3
 
 FINAL_LIFECYCLE=$(api_booking_lifecycle "$PARENT_TOKEN" "$BOOKING_ID")
 assert_eq "Booking lifecycle" "$FINAL_LIFECYCLE" "completed"
+state_set "bookings[0].lifecycle" "completed"
+state_set "sessions[0].status" "completed"
 
 if [[ -n "${SESSION_ID:-}" ]]; then
   FINAL_SESSION=$(api_session_status "$PARENT_TOKEN" "$SESSION_ID")
