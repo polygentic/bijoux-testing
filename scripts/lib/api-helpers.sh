@@ -228,6 +228,23 @@ api_add_payment_method() {
     -d "{\"stripePaymentMethodId\":\"pm_test_visa_4242_${label}\",\"brand\":\"visa\",\"last4\":\"4242\",\"expiryMonth\":12,\"expiryYear\":2028}" 2>/dev/null
 }
 
+# Cancel all completed test bookings from today via database.
+# This resets the matching engine's daily limit counter.
+# Args: none (uses docker exec to access PostgreSQL directly)
+api_reset_daily_limits() {
+  local count
+  count=$(docker exec bijoux-postgres psql -U bijoux -d bijoux_dev -t -c "
+    UPDATE bookings SET lifecycle = 'cancelled'
+    WHERE lifecycle = 'completed'
+    AND created_at >= CURRENT_DATE
+    AND created_at < CURRENT_DATE + INTERVAL '1 day'
+    RETURNING id;
+  " 2>/dev/null | grep -c '[a-f0-9]' 2>/dev/null || echo "0")
+  if [[ "$count" -gt 0 ]]; then
+    echo "  Reset daily limits: cancelled $count completed test bookings from today"
+  fi
+}
+
 # Reseed backend for clean state. No args.
 api_reseed() {
   echo "  Reseeding backend..."

@@ -60,6 +60,12 @@ ADMIN_TOKEN=$(api_login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")
 step "Clean up stale bookings/sessions and set caregiver ready"
 api_cleanup_sessions "$CAREGIVER_TOKEN" "$PARENT_TOKEN"
 api_cancel_active_bookings "$PARENT_TOKEN"
+api_reset_daily_limits
+
+# Set OTHER caregivers offline so matching engine only dispatches to Maria
+EMMA_TOKEN=$(api_login "$CAREGIVER_EMAIL" "$CAREGIVER_PASSWORD" 2>/dev/null) || true
+[[ -n "$EMMA_TOKEN" && "$EMMA_TOKEN" != "None" ]] && api_set_online "$EMMA_TOKEN" "false" 2>/dev/null || true
+
 api_set_online "$CAREGIVER_TOKEN" "true"
 api_report_location "$CAREGIVER_TOKEN" "${TEST_LAT}" "${TEST_LNG}"
 

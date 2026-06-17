@@ -45,6 +45,7 @@ ADMIN_TOKEN=$(api_login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")
 api_cleanup_sessions "$CG1_TOKEN" "$PARENT_TOKEN"
 api_cleanup_sessions "$CG2_TOKEN" "$PARENT_TOKEN"
 api_cancel_active_bookings "$PARENT_TOKEN"
+api_reset_daily_limits
 
 # Both caregivers online — broadcast model sends offers to both
 api_set_online "$CG1_TOKEN" "true"
