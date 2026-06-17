@@ -17,32 +17,37 @@ appId: polygentic.bijouxCaregiverApp
 - tapOn: "you@example.com"
 - inputText: "cg-emma@test.bijoux.app"
 
-# Dismiss keyboard by scrolling
-- scroll
-
-# Tap on Welcome Back to ensure focus is off email
+# Dismiss email keyboard
 - tapOn: "Welcome Back"
 
-# Tap password field by hint text
-- tapOn: "Enter your password"
+# Toggle password to plain text mode via eye icon
+# (Workaround: Maestro XCTest driver cannot input into SwiftUI SecureField on iOS 26.5)
+- tapOn: "Show password"
+
+# Tap the now-plain TextField and enter password
+- tapOn:
+    id: "login-password-field"
 - inputText: "Test1234!"
 
-# Dismiss keyboard
-- scroll
+# Toggle back to secure mode (shifts focus away, dismisses keyboard)
+- tapOn: "Hide password"
+
+- waitForAnimationToEnd
 
 # Tap login submit button
 - tapOn:
     id: "login-submit-button"
 
-- waitForAnimationToEnd
+# Wait for login network call + navigation to complete
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 15000
 
 # Dismiss iOS "Save Password?" dialog if it appears
 - tapOn:
     text: "Not Now"
     optional: true
-- waitForAnimationToEnd
 
 # cg-emma is fully onboarded — verify home screen loaded
-# (may show greeting or active session view depending on seed data)
 - assertVisible: "Home"
 - takeScreenshot: results/caregiver-login-success
