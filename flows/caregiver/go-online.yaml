@@ -6,7 +6,6 @@ tags:
 ---
 - launchApp
 - waitForAnimationToEnd
-- scroll
 - tapOn:
     text: ".*Go Online.*|.*Online.*"
     optional: true

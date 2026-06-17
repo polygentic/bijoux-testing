@@ -18,7 +18,6 @@ appId: polygentic.bijouxCaregiverApp
 - inputText: "cg-emma@test.bijoux.app"
 
 # Dismiss keyboard
-- scroll
 
 # Tap on Welcome Back to ensure focus is off email
 - tapOn: "Welcome Back"
@@ -32,7 +31,6 @@ appId: polygentic.bijouxCaregiverApp
 - inputText: "WrongPass1!"
 
 # Dismiss keyboard
-- scroll
 
 # Tap login submit button
 - tapOn:

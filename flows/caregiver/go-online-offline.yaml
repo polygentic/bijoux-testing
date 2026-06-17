@@ -19,7 +19,6 @@ appId: polygentic.bijouxCaregiverApp
 - inputText: "cg-maria@test.bijoux.app"
 
 # Dismiss keyboard
-- scroll
 
 # Tap on Welcome Back to ensure focus is off email
 - tapOn: "Welcome Back"
@@ -32,8 +31,10 @@ appId: polygentic.bijouxCaregiverApp
     id: "login-password-field"
 - inputText: "Test1234!"
 
+# Toggle back to secure mode
+- tapOn: "Hide password"
+
 # Dismiss keyboard
-- scroll
 
 # Tap login submit button
 - tapOn:
@@ -47,7 +48,6 @@ appId: polygentic.bijouxCaregiverApp
 - takeScreenshot: caregiver-go-online-before
 
 # Look for the online/offline toggle
-- scroll
 
 # Tap Go Online to toggle status
 - tapOn: ".*Go Online.*|.*Online.*|.*Offline.*"

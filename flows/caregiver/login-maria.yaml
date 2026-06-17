@@ -16,16 +16,25 @@ tags:
 - tapOn: "you@example.com"
 - inputText: "cg-maria@test.bijoux.app"
 
-- scroll
 
 - tapOn: "Welcome Back"
 
-- tapOn: "Enter your password"
+# Toggle password to plain text mode via eye icon
+# (Workaround: Maestro XCTest driver cannot input into SwiftUI SecureField on iOS 26.5)
+- tapOn: "Show password"
+
+# Tap the now-plain TextField and enter password
+- tapOn:
+    id: "login-password-field"
 - inputText: "Test1234!"
 
-- scroll
+# Toggle back to secure mode
+- tapOn: "Hide password"
 
-- tapOn: "Sign In"
+
+# Tap login submit button
+- tapOn:
+    id: "login-submit-button"
 
 - waitForAnimationToEnd
 
