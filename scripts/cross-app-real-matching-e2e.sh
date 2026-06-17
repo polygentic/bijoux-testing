@@ -62,7 +62,20 @@ api_cleanup_sessions "$CAREGIVER_TOKEN" "$PARENT_TOKEN"
 api_cancel_active_bookings "$PARENT_TOKEN"
 api_set_online "$CAREGIVER_TOKEN" "true"
 api_report_location "$CAREGIVER_TOKEN" "${TEST_LAT}" "${TEST_LNG}"
-pass "Stale bookings/sessions cleaned, caregiver online + location set"
+
+# Ensure caregiver BG check and IDV are in matching-eligible state
+CAREGIVER_PROFILE_ID=$(curl -s -H "Authorization: Bearer $CAREGIVER_TOKEN" \
+  "${BACKEND_URL}/profile/caregiver" 2>/dev/null \
+  | python3 -c "import sys,json; print(json.load(sys.stdin).get('profile',{}).get('id',''))" 2>/dev/null)
+if [[ -n "$CAREGIVER_PROFILE_ID" ]]; then
+  curl -s -X PUT "${BACKEND_URL}/trust/caregivers/${CAREGIVER_PROFILE_ID}/bg-status" \
+    -H "Content-Type: application/json" -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -d '{"status":"clear"}' > /dev/null 2>&1
+  curl -s -X PUT "${BACKEND_URL}/trust/caregivers/${CAREGIVER_PROFILE_ID}/idv-status" \
+    -H "Content-Type: application/json" -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -d '{"status":"approved"}' > /dev/null 2>&1
+fi
+pass "Stale bookings/sessions cleaned, caregiver online + location + trust set"
 
 # ═══════════════════════════════════════════════════════════════
 # PHASE 2: Boot simulators
