@@ -2,11 +2,12 @@
 # UAT: Multi-Parent Bookings — Two Parents, Two Caregivers
 #
 # Tests that two different parents can book and be matched with two different
-# caregivers, each completing a full session lifecycle independently.
+# caregivers, each completing a full session lifecycle independently via UI.
 #
 # Strategy: Sequential bookings — Booking 1 (Sarah+Emma) completes before
 # Booking 2 (James+Maria) starts. Each booking uses the combined-flow pattern
 # (single continuous Maestro process) to prevent XCTest driver session loss.
+# Session lifecycle (verify, end, rate) runs through the real UI, not API.
 #
 # Requires: 4 sims (bijoux-parent, bijoux-parent-2, bijoux-care, bijoux-care-2)
 
@@ -91,11 +92,11 @@ sleep 8
 pass "All 4 simulators booted"
 
 # ═══════════════════════════════════════════════════════════════
-# BOOKING 1: Sarah + Emma (combined flow pattern)
+# BOOKING 1: Sarah + Emma (combined flow pattern — full UI lifecycle)
 # ═══════════════════════════════════════════════════════════════
-step "Emma: Login + online + wait + accept + IOMW + arrival (background)"
+step "Emma: Full lifecycle (login → session complete) [background]"
 CG1_LOG="$ROOT_DIR/results/cross-app/caregiver-emma-multi.log"
-maestro test "$ROOT_DIR/flows/caregiver/login-online-wait-accept-emma.yaml" --device "$CAREGIVER_UDID" \
+maestro test "$ROOT_DIR/flows/caregiver/login-online-accept-session-end-emma.yaml" --device "$CAREGIVER_UDID" \
   > "$CG1_LOG" 2>&1 &
 CG1_PID=$!
 echo "  Emma flow started (PID: $CG1_PID)"
@@ -103,46 +104,75 @@ echo "  Emma flow started (PID: $CG1_PID)"
 # Give Emma 20s to login and go online
 sleep 20
 
-step "Sarah: Login and book"
-maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Sarah booked" || { fail "Sarah booking"; kill $CG1_PID 2>/dev/null; exit 1; }
+step "Sarah: Full lifecycle (login → rate → done) [background]"
+P1_LOG="$ROOT_DIR/results/cross-app/parent-sarah-multi.log"
+maestro test "$ROOT_DIR/flows/parent/login-book-session-end.yaml" --device "$PARENT_UDID" \
+  > "$P1_LOG" 2>&1 &
+P1_PID=$!
+echo "  Sarah flow started (PID: $P1_PID)"
 
-sleep 3
-BOOKING_1=$(api_latest_booking_id "$P1_TOKEN")
-[[ -n "$BOOKING_1" ]] && pass "Booking 1: $BOOKING_1" || { fail "No booking 1"; kill $CG1_PID 2>/dev/null; exit 1; }
-state_append_booking "$BOOKING_1" "Sarah" "Emma" "matching"
-
-step "Wait for Emma to accept + IOMW + arrive"
-if wait $CG1_PID; then
-  pass "Emma: login + online + offer accepted + IOMW + arrived"
-else
-  echo "  Emma flow log:"
-  tail -20 "$CG1_LOG" 2>/dev/null
-  fail "Emma combined flow"
-  exit 1
-fi
-
-step "Session 1: Create + Verify + End via API"
-S1_CREATE=$(api_create_session "$CG1_TOKEN" "$BOOKING_1")
-S1=$(echo "$S1_CREATE" | python3 -c "
+# Poll for booking 1 ID
+sleep 35
+BOOKING_1=""
+for i in $(seq 1 12); do
+  BOOKING_1=$(curl -s -H "Authorization: Bearer $P1_TOKEN" \
+    "${BACKEND_URL}/bookings?limit=5&sort=-createdAt" 2>/dev/null \
+    | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-d = data.get('session', data.get('data', data))
-print(d.get('id', ''))" 2>/dev/null)
-[[ -n "$S1" && "$S1" != "None" ]] && pass "Session 1: $S1" || fail "Session 1 creation"
-api_verify_session_start "$CG1_TOKEN" "$S1" > /dev/null
-api_verify_session_start "$P1_TOKEN" "$S1" > /dev/null
-pass "Session 1 dual verification done"
-api_end_session "$CG1_TOKEN" "$S1" > /dev/null
-pass "Session 1 ended"
+items = data.get('data', data.get('bookings', []))
+for b in items:
+    lc = b.get('lifecycle', '')
+    if lc not in ('cancelled', 'completed', ''):
+        print(b.get('id', ''))
+        break
+" 2>/dev/null)
+  [[ -n "$BOOKING_1" ]] && break
+  sleep 5
+done
+[[ -n "$BOOKING_1" ]] && pass "Booking 1: $BOOKING_1" || echo "  ⚠ Could not resolve booking 1 ID yet"
+[[ -n "$BOOKING_1" ]] && state_append_booking "$BOOKING_1" "Sarah" "Emma" "matching"
 
-step "Verify Booking 1 completed"
-sleep 2
+step "Wait for Booking 1 lifecycle flows to complete"
+CG1_OK=true; P1_OK=true
+
+if ! wait $CG1_PID; then
+  echo "  Emma lifecycle log:"
+  tail -30 "$CG1_LOG" 2>/dev/null
+  fail "Emma full lifecycle"
+  CG1_OK=false
+else
+  pass "Emma: login → online → accept → IOMW → arrive → verify → session → end → done"
+fi
+
+if ! wait $P1_PID; then
+  echo "  Sarah lifecycle log:"
+  tail -30 "$P1_LOG" 2>/dev/null
+  fail "Sarah full lifecycle"
+  P1_OK=false
+else
+  pass "Sarah: login → book → arrival → verify → session → end → rate → done"
+fi
+
+[[ "$CG1_OK" == "false" || "$P1_OK" == "false" ]] && { fail "Booking 1 UI lifecycle failed, aborting"; exit 1; }
+
+step "Verify Booking 1 completed via API"
+sleep 3
+COMPLETED_1=$(curl -s -H "Authorization: Bearer $P1_TOKEN" \
+  "${BACKEND_URL}/bookings?limit=1&sort=-createdAt&lifecycle=completed" 2>/dev/null \
+  | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('data', data.get('bookings', []))
+if isinstance(items, list) and len(items) > 0:
+    print(items[0].get('id', ''))
+" 2>/dev/null)
+[[ -n "$COMPLETED_1" ]] && BOOKING_1="$COMPLETED_1"
 L1=$(api_booking_lifecycle "$P1_TOKEN" "$BOOKING_1")
 [[ "$L1" == "completed" ]] && pass "Booking 1 completed" || fail "Booking 1: $L1"
 
 # ═══════════════════════════════════════════════════════════════
-# BOOKING 2: James + Maria (combined flow pattern)
+# BOOKING 2: James + Maria (combined flow pattern — full UI lifecycle)
 # Switch caregiver online status: Emma off, Maria on
 # ═══════════════════════════════════════════════════════════════
 step "Switch caregivers: Emma offline, Maria online"
@@ -153,13 +183,9 @@ api_set_online "$CG2_TOKEN" "true"
 api_report_location "$CG2_TOKEN" "${TEST_LAT}" "${TEST_LNG}"
 pass "Emma offline, Maria online"
 
-# Concurrent pattern: Maria starts first (background), James books 20s later.
-# James's flow uses ALL text-based selectors (no accessibility IDs) to avoid
-# XCTest driver ID lookup failures on bijoux-parent-2 during concurrent runs.
-
-step "Maria: Login + online + wait + accept + IOMW + arrival (background)"
+step "Maria: Full lifecycle (login → session complete) [background]"
 CG2_LOG="$ROOT_DIR/results/cross-app/caregiver-maria-multi.log"
-maestro test "$ROOT_DIR/flows/caregiver/login-online-wait-accept.yaml" --device "$CAREGIVER_UDID_2" \
+maestro test "$ROOT_DIR/flows/caregiver/login-online-accept-session-end.yaml" --device "$CAREGIVER_UDID_2" \
   > "$CG2_LOG" 2>&1 &
 CG2_PID=$!
 echo "  Maria flow started (PID: $CG2_PID)"
@@ -167,44 +193,76 @@ echo "  Maria flow started (PID: $CG2_PID)"
 # Give Maria 20s to login and go online
 sleep 20
 
-step "James: Login and book"
-maestro test "$ROOT_DIR/flows/cross-app/parent-james-login-and-book.yaml" --device "$PARENT_UDID_2" 2>&1 \
-  && pass "James booked" || { fail "James booking"; kill $CG2_PID 2>/dev/null; exit 1; }
+step "James: Full lifecycle (login → rate → done) [background]"
+P2_LOG="$ROOT_DIR/results/cross-app/parent-james-multi.log"
+maestro test "$ROOT_DIR/flows/parent/login-book-session-end-james.yaml" --device "$PARENT_UDID_2" \
+  > "$P2_LOG" 2>&1 &
+P2_PID=$!
+echo "  James flow started (PID: $P2_PID)"
 
-sleep 3
-BOOKING_2=$(api_latest_booking_id "$P2_TOKEN")
-[[ -n "$BOOKING_2" ]] && pass "Booking 2: $BOOKING_2" || { fail "No booking 2"; kill $CG2_PID 2>/dev/null; exit 1; }
-state_append_booking "$BOOKING_2" "James" "Maria" "matching"
-
-step "Wait for Maria to accept + IOMW + arrive"
-if wait $CG2_PID; then
-  pass "Maria: login + online + offer accepted + IOMW + arrived"
-else
-  echo "  Maria flow log:"
-  tail -20 "$CG2_LOG" 2>/dev/null
-  fail "Maria combined flow"
-  exit 1
-fi
-
-step "Session 2: Create + Verify + End via API"
-S2_CREATE=$(api_create_session "$CG2_TOKEN" "$BOOKING_2")
-S2=$(echo "$S2_CREATE" | python3 -c "
+# Poll for booking 2 ID
+sleep 35
+BOOKING_2=""
+for i in $(seq 1 12); do
+  BOOKING_2=$(curl -s -H "Authorization: Bearer $P2_TOKEN" \
+    "${BACKEND_URL}/bookings?limit=5&sort=-createdAt" 2>/dev/null \
+    | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-d = data.get('session', data.get('data', data))
-print(d.get('id', ''))" 2>/dev/null)
-[[ -n "$S2" && "$S2" != "None" ]] && pass "Session 2: $S2" || fail "Session 2 creation"
-api_verify_session_start "$CG2_TOKEN" "$S2" > /dev/null
-api_verify_session_start "$P2_TOKEN" "$S2" > /dev/null
-pass "Session 2 dual verification done"
-api_end_session "$CG2_TOKEN" "$S2" > /dev/null
-pass "Session 2 ended"
+items = data.get('data', data.get('bookings', []))
+for b in items:
+    lc = b.get('lifecycle', '')
+    if lc not in ('cancelled', 'completed', ''):
+        print(b.get('id', ''))
+        break
+" 2>/dev/null)
+  [[ -n "$BOOKING_2" ]] && break
+  sleep 5
+done
+[[ -n "$BOOKING_2" ]] && pass "Booking 2: $BOOKING_2" || echo "  ⚠ Could not resolve booking 2 ID yet"
+[[ -n "$BOOKING_2" ]] && state_append_booking "$BOOKING_2" "James" "Maria" "matching"
+
+step "Wait for Booking 2 lifecycle flows to complete"
+CG2_OK=true; P2_OK=true
+
+if ! wait $CG2_PID; then
+  echo "  Maria lifecycle log:"
+  tail -30 "$CG2_LOG" 2>/dev/null
+  fail "Maria full lifecycle"
+  CG2_OK=false
+else
+  pass "Maria: login → online → accept → IOMW → arrive → verify → session → end → done"
+fi
+
+if ! wait $P2_PID; then
+  echo "  James lifecycle log:"
+  tail -30 "$P2_LOG" 2>/dev/null
+  fail "James full lifecycle"
+  P2_OK=false
+else
+  pass "James: login → book → arrival → verify → session → end → rate → done"
+fi
+
+[[ "$CG2_OK" == "false" || "$P2_OK" == "false" ]] && { fail "Booking 2 UI lifecycle failed"; }
 
 # ═══════════════════════════════════════════════════════════════
 # FINAL VERIFICATION
 # ═══════════════════════════════════════════════════════════════
 step "API verification"
 sleep 3
+
+# Resolve final booking IDs
+COMPLETED_2=$(curl -s -H "Authorization: Bearer $P2_TOKEN" \
+  "${BACKEND_URL}/bookings?limit=1&sort=-createdAt&lifecycle=completed" 2>/dev/null \
+  | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('data', data.get('bookings', []))
+if isinstance(items, list) and len(items) > 0:
+    print(items[0].get('id', ''))
+" 2>/dev/null)
+[[ -n "$COMPLETED_2" ]] && BOOKING_2="$COMPLETED_2"
+
 L1=$(api_booking_lifecycle "$P1_TOKEN" "$BOOKING_1")
 L2=$(api_booking_lifecycle "$P2_TOKEN" "$BOOKING_2")
 echo "  Booking 1: $L1, Booking 2: $L2"
@@ -212,6 +270,12 @@ echo "  Booking 1: $L1, Booking 2: $L2"
 [[ "$L2" == "completed" ]] && pass "Booking 2 completed" || fail "Booking 2: $L2"
 state_set "bookings[0].lifecycle" "completed"
 state_set "bookings[1].lifecycle" "completed"
+
+# Resolve session IDs
+S1=$(api_session_id "$P1_TOKEN" "$BOOKING_1")
+S2=$(api_session_id "$P2_TOKEN" "$BOOKING_2")
+[[ -n "$S1" && "$S1" != "None" ]] && pass "Session 1: $S1" || fail "Session 1 not found"
+[[ -n "$S2" && "$S2" != "None" ]] && pass "Session 2: $S2" || fail "Session 2 not found"
 
 step "Verify transactions"
 for i in 1 2; do

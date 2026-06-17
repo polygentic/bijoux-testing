@@ -1,0 +1,120 @@
+# Combined: Login + Book + Wait for Arrival + Verify Start + Active Session + End + Rate + Done
+# Full parent lifecycle in a single Maestro process for James (parent-james@test.bijoux.app).
+# Same as login-book-session-end.yaml but with James's credentials and text-based selectors
+# (bijoux-parent-2 simulator has intermittent XCTest accessibility ID lookup failures).
+appId: polygentic.bijouxParentApp
+tags:
+  - cross-app
+  - session-lifecycle
+---
+# ═══ LOGIN ═══
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Get Started"
+    timeout: 15000
+- tapOn: "Get Started"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: "parent-james@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Show password"
+- extendedWaitUntil:
+    visible: "Enter your password"
+    timeout: 5000
+- tapOn: "Enter your password"
+- inputText: "Test1234!"
+- tapOn: "Hide password"
+- tapOn: "Log In"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: ".*Good.*James.*|.*Hi.*James.*|.*evening.*|.*morning.*|.*afternoon.*"
+    timeout: 10000
+- takeScreenshot: results/cross-app/parent-james-logged-in
+
+# ═══ CREATE BOOKING ═══
+- tapOn:
+    text: "Request Now"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Duration"
+    optional: true
+- tapOn:
+    text: ".*Sofia.*|.*Max.*|.*Lily.*"
+- swipe:
+    direction: UP
+    duration: 400
+- waitForAnimationToEnd
+- tapOn: "Request Caregiver"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Capture"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Request Caregiver"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/parent-james-matching-started
+
+# ═══ WAIT FOR CAREGIVER ARRIVAL (app polls automatically) ═══
+- extendedWaitUntil:
+    visible: ".*Caregiver Has Arrived.*|.*Start Identity Verification.*"
+    timeout: 240000
+- takeScreenshot: results/cross-app/parent-james-caregiver-arrived
+
+# ═══ VERIFY START (identity verification) ═══
+- tapOn: "Start Identity Verification"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 10000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR SESSION ACTIVE (caregiver must also verify) ═══
+- extendedWaitUntil:
+    visible: ".*In Progress.*|.*End Job.*"
+    timeout: 120000
+- tapOn:
+    id: "home-active-session-card"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/parent-james-session-active
+- extendedWaitUntil:
+    visible:
+      id: "active-session-end-button"
+    timeout: 30000
+
+# ═══ END JOB ═══
+- tapOn:
+    id: "active-session-end-button"
+- waitForAnimationToEnd
+- tapOn:
+    id: "end-job-confirm-button"
+- waitForAnimationToEnd
+
+# ═══ VERIFY END (identity verification) ═══
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 30000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR SESSION COMPLETE (caregiver must also verify end) ═══
+- extendedWaitUntil:
+    visible: ".*Session Complete.*|.*How was your experience.*"
+    timeout: 120000
+- takeScreenshot: results/cross-app/parent-james-session-complete
+
+# ═══ RATE (tap star area for rating, then Done) ═══
+- tapOn:
+    id: "summary-rating-label"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "summary-done-button"
+- waitForAnimationToEnd

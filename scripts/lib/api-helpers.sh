@@ -47,13 +47,16 @@ else:
 # Get session ID from booking. Args: token, booking_id
 api_session_id() {
   local token="$1" booking_id="$2"
-  api_get_booking "$token" "$booking_id" \
+  curl -s -H "Authorization: Bearer ${token}" \
+    "${BACKEND_URL}/sessions?bookingId=${booking_id}" 2>/dev/null \
     | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-d = data.get('booking', data.get('data', data))
-s = d.get('session', {})
-print(s.get('id', '') if s else '')" 2>/dev/null
+sessions = data.get('sessions', data.get('data', []))
+if isinstance(sessions, list) and len(sessions) > 0:
+    print(sessions[0].get('id', ''))
+else:
+    print('')" 2>/dev/null
 }
 
 # Get session status. Args: token, session_id

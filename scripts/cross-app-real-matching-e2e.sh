@@ -98,114 +98,102 @@ sleep 8
 pass "Both simulators booted"
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 3: Caregiver full flow (background) + Parent booking (foreground)
-# The caregiver flow runs as a SINGLE continuous Maestro process to prevent
-# XCTest driver restarts from killing the app session. It logs in, goes online,
-# waits up to 3 minutes for the offer, accepts it, then continues through
-# IOMW and arrival — all in one process to keep XCTest driver alive.
-# The parent flow runs after a delay to give the caregiver time to log in.
+# PHASE 3: Full lifecycle via UI — both apps as combined flows
+#
+# Each app runs its ENTIRE lifecycle as a single continuous Maestro process
+# to prevent XCTest driver restarts from losing app state:
+#   Caregiver: login → online → accept → IOMW → arrive → verify → session → end → complete
+#   Parent:    login → book → wait for arrival → verify → session → end → rate → done
+#
+# Caregiver starts first (background) to be online before parent books.
+# Parent starts 20s later. Both continue through session lifecycle concurrently.
 # ═══════════════════════════════════════════════════════════════
-step "Caregiver: Login + online + accept + IOMW + arrival (background)"
+step "Caregiver: Full lifecycle (login → session complete) [background]"
 
-CG_LOG="$ROOT_DIR/results/cross-app/caregiver-combined.log"
-maestro test "$ROOT_DIR/flows/caregiver/login-online-wait-accept.yaml" --device "$CAREGIVER_UDID" \
+CG_LOG="$ROOT_DIR/results/cross-app/caregiver-full-lifecycle.log"
+maestro test "$ROOT_DIR/flows/caregiver/login-online-accept-session-end.yaml" --device "$CAREGIVER_UDID" \
   > "$CG_LOG" 2>&1 &
 CG_PID=$!
 echo "  Caregiver flow started (PID: $CG_PID)"
 
-# Give caregiver 20s to login and go online before parent starts booking
+# Give caregiver 20s to login and go online before parent starts
 sleep 20
 
-step "Parent: Login and create booking"
+step "Parent: Full lifecycle (login → rate → done) [background]"
 
-maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Parent login + booking" || { fail "Parent login + booking"; kill $CG_PID 2>/dev/null; exit 1; }
+P_LOG="$ROOT_DIR/results/cross-app/parent-full-lifecycle.log"
+maestro test "$ROOT_DIR/flows/parent/login-book-session-end.yaml" --device "$PARENT_UDID" \
+  > "$P_LOG" 2>&1 &
+P_PID=$!
+echo "  Parent flow started (PID: $P_PID)"
 
+# Poll for an active booking ID (not cancelled/completed from previous runs)
 step "Get booking ID from API"
-sleep 3
-BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
-[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || { fail "No booking found"; kill $CG_PID 2>/dev/null; exit 1; }
-state_append_booking "$BOOKING_ID" "Sarah" "" "matching"
-
-step "Wait for caregiver flow to complete (accept + IOMW + arrival)"
-
-# Wait for the background caregiver flow to complete
-# (login → online → wait for offer → accept → IOMW → arrival)
-if wait $CG_PID; then
-  pass "Caregiver: login + online + offer accepted + IOMW + arrived"
-else
-  echo "  Caregiver combined flow log:"
-  tail -20 "$CG_LOG" 2>/dev/null
-  fail "Caregiver combined flow"
-  exit 1
-fi
-
-step "Verify booking matched via API"
-LIFECYCLE=$(api_wait_for_lifecycle "$PARENT_TOKEN" "$BOOKING_ID" "matched" 10)
-[[ "$LIFECYCLE" == "matched" || "$LIFECYCLE" == "confirmed" ]] \
-  && pass "Booking matched (lifecycle: $LIFECYCLE)" || fail "Booking not matched (lifecycle: $LIFECYCLE)"
-state_set "bookings[0].caregiver" "Maria"
-state_set "bookings[0].lifecycle" "matched"
-
-step "Parent: Verify caregiver found on simulator"
-
-# Non-fatal: parent app may have lost session due to XCTest driver restart.
-# API already confirmed matching above, so this is a UI-only verification.
-maestro test "$ROOT_DIR/flows/parent/verify-matched.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Parent sees caregiver matched" || echo "  ⚠ WARN: Parent verify-matched (non-fatal, API confirmed)"
-
-# Note: IOMW and arrival are handled by the combined caregiver flow above.
-# No separate Maestro steps needed — XCTest driver stays alive throughout.
-
-# ═══════════════════════════════════════════════════════════════
-# PHASE 5: Session start — API-driven (Veriff bypassed in dev)
-# ═══════════════════════════════════════════════════════════════
-step "Create session via API"
-
-SESSION_CREATE=$(api_create_session "$CAREGIVER_TOKEN" "$BOOKING_ID")
-SESSION_ID=$(echo "$SESSION_CREATE" | python3 -c "
+sleep 35
+BOOKING_ID=""
+for i in $(seq 1 12); do
+  BOOKING_ID=$(curl -s -H "Authorization: Bearer $PARENT_TOKEN" \
+    "${BACKEND_URL}/bookings?limit=5&sort=-createdAt" 2>/dev/null \
+    | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-d = data.get('session', data.get('data', data))
-print(d.get('id', ''))" 2>/dev/null)
+items = data.get('data', data.get('bookings', []))
+for b in items:
+    lc = b.get('lifecycle', '')
+    if lc not in ('cancelled', 'completed', ''):
+        print(b.get('id', ''))
+        break
+" 2>/dev/null)
+  [[ -n "$BOOKING_ID" ]] && break
+  sleep 5
+done
+[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || echo "  ⚠ Could not resolve booking ID yet"
+[[ -n "$BOOKING_ID" ]] && state_append_booking "$BOOKING_ID" "Sarah" "Maria" "matching"
+
+step "Wait for both lifecycle flows to complete"
+
+CG_OK=true; P_OK=true
+
+if ! wait $CG_PID; then
+  echo "  Caregiver lifecycle log:"
+  tail -30 "$CG_LOG" 2>/dev/null
+  fail "Caregiver full lifecycle"
+  CG_OK=false
+else
+  pass "Caregiver: login → online → accept → IOMW → arrive → verify → session → end → done"
+fi
+
+if ! wait $P_PID; then
+  echo "  Parent lifecycle log:"
+  tail -30 "$P_LOG" 2>/dev/null
+  fail "Parent full lifecycle"
+  P_OK=false
+else
+  pass "Parent: login → book → arrival → verify → session → end → rate → done"
+fi
+
+[[ "$CG_OK" == "false" || "$P_OK" == "false" ]] && exit 1
+
+step "Resolve booking and session IDs from API"
+sleep 3
+# After both flows complete, find the most recently completed booking
+COMPLETED_BOOKING=$(curl -s -H "Authorization: Bearer $PARENT_TOKEN" \
+  "${BACKEND_URL}/bookings?limit=1&sort=-createdAt&lifecycle=completed" 2>/dev/null \
+  | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('data', data.get('bookings', []))
+if isinstance(items, list) and len(items) > 0:
+    print(items[0].get('id', ''))
+" 2>/dev/null)
+[[ -n "$COMPLETED_BOOKING" ]] && BOOKING_ID="$COMPLETED_BOOKING"
+[[ -z "${BOOKING_ID:-}" ]] && BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
+[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || fail "No booking found"
+
+SESSION_ID=$(api_session_id "$PARENT_TOKEN" "$BOOKING_ID")
 [[ -n "$SESSION_ID" && "$SESSION_ID" != "None" ]] \
-  && pass "Session created: $SESSION_ID" || { fail "Session creation failed"; }
-state_append_session "$SESSION_ID" "$BOOKING_ID" "not_started"
-
-step "Verify session start (dual-party, Veriff bypassed)"
-
-api_verify_session_start "$CAREGIVER_TOKEN" "$SESSION_ID" > /dev/null
-pass "Caregiver verified"
-
-VERIFY_RESULT=$(api_verify_session_start "$PARENT_TOKEN" "$SESSION_ID")
-SESSION_STARTED=$(echo "$VERIFY_RESULT" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print(d.get('sessionStarted', False))" 2>/dev/null)
-[[ "$SESSION_STARTED" == "True" ]] \
-  && pass "Session started (both verified)" || fail "Session did not start"
-
-sleep 2
-SESSION_STATUS=$(api_session_status "$PARENT_TOKEN" "$SESSION_ID")
-assert_eq "Session status after start" "$SESSION_STATUS" "in_progress"
-
-# ═══════════════════════════════════════════════════════════════
-# PHASE 7: Session end — API-driven
-# ═══════════════════════════════════════════════════════════════
-step "End session via API"
-
-END_RESULT=$(api_end_session "$CAREGIVER_TOKEN" "$SESSION_ID")
-BILLABLE=$(echo "$END_RESULT" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print(f\"billable={d.get('billableMinutes',0)}min, earnings={d.get('caregiverEarningsCents',0)}c\")" 2>/dev/null)
-echo "  End result: $BILLABLE"
-pass "Session ended via API"
-
-step "Rate session via API"
-
-api_rate_session "$PARENT_TOKEN" "$SESSION_ID" 5 > /dev/null
-pass "Session rated (5 stars)"
+  && pass "Session: $SESSION_ID" || { fail "Could not resolve session ID"; }
+state_append_session "$SESSION_ID" "$BOOKING_ID" "completed"
 
 # ═══════════════════════════════════════════════════════════════
 # PHASE 8: API Verification

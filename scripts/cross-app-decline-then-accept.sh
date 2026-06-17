@@ -2,12 +2,15 @@
 # UAT: Multi-Caregiver — First Declines, Second Accepts
 #
 # Tests: Parent books → Emma declines → Maria accepts → IOMW → Arrival →
-#        Session lifecycle → Verify offer statuses
+#        Session lifecycle via UI → Verify offer statuses
 #
 # Strategy: Broadcast model — both caregivers online, both get offers.
 # Emma's flow starts FIRST and is already waiting when the offer arrives,
 # so she declines before Maria (who starts later) can accept. Only acceptance
 # cancels other offers; decline leaves them pending.
+#
+# Session lifecycle runs through the real UI (Maestro combined flows) on both
+# Maria's simulator and the parent simulator concurrently.
 #
 # Requires: 3 sims booted (bijoux-parent, bijoux-care, bijoux-care-2), backend running
 
@@ -98,14 +101,36 @@ echo "  Emma flow started (PID: $CG1_PID)"
 # Give Emma 25s to login and go online — she'll be idle, waiting for offer
 sleep 25
 
-step "Parent: Login and book"
-maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Parent booked" || { fail "Parent booking"; kill $CG1_PID 2>/dev/null; exit 1; }
+# Parent runs combined flow: login → book → wait arrival → verify → session → end → rate
+# Runs in background so Emma can decline and Maria can start concurrently.
+step "Parent: Full lifecycle (login → rate → done) [background]"
+P_LOG="$ROOT_DIR/results/cross-app/parent-decline-test.log"
+maestro test "$ROOT_DIR/flows/parent/login-book-session-end.yaml" --device "$PARENT_UDID" \
+  > "$P_LOG" 2>&1 &
+P_PID=$!
+echo "  Parent flow started (PID: $P_PID)"
 
-sleep 3
-BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
-[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || { fail "No booking found"; kill $CG1_PID 2>/dev/null; exit 1; }
-state_append_booking "$BOOKING_ID" "Sarah" "" "matching"
+# Poll for booking ID (not cancelled/completed from previous runs)
+sleep 35
+BOOKING_ID=""
+for i in $(seq 1 12); do
+  BOOKING_ID=$(curl -s -H "Authorization: Bearer $PARENT_TOKEN" \
+    "${BACKEND_URL}/bookings?limit=5&sort=-createdAt" 2>/dev/null \
+    | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('data', data.get('bookings', []))
+for b in items:
+    lc = b.get('lifecycle', '')
+    if lc not in ('cancelled', 'completed', ''):
+        print(b.get('id', ''))
+        break
+" 2>/dev/null)
+  [[ -n "$BOOKING_ID" ]] && break
+  sleep 5
+done
+[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || echo "  ⚠ Could not resolve booking ID yet"
+[[ -n "$BOOKING_ID" ]] && state_append_booking "$BOOKING_ID" "Sarah" "" "matching"
 
 # ═══════════════════════════════════════════════════════════════
 # PHASE 4: Wait for Emma to decline BEFORE starting Maria
@@ -123,65 +148,73 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 5: Start Maria's flow — her offer should still be pending
+# PHASE 5: Maria full lifecycle — accept + IOMW + arrive + session → complete
 # In the broadcast model, Emma's decline does NOT cancel Maria's offer.
+# Maria runs the combined flow covering the full session lifecycle via UI.
 # ═══════════════════════════════════════════════════════════════
-step "Maria: Login + online + wait + accept + IOMW + arrival"
+step "Maria: Full lifecycle (login → session complete) [background]"
 CG2_LOG="$ROOT_DIR/results/cross-app/caregiver-maria-accept.log"
-maestro test "$ROOT_DIR/flows/caregiver/login-online-wait-accept.yaml" --device "$CAREGIVER_UDID_2" \
+maestro test "$ROOT_DIR/flows/caregiver/login-online-accept-session-end.yaml" --device "$CAREGIVER_UDID_2" \
   > "$CG2_LOG" 2>&1 &
 CG2_PID=$!
 echo "  Maria flow started (PID: $CG2_PID)"
 
-step "Wait for Maria to accept + IOMW + arrive"
-if wait $CG2_PID; then
-  pass "Maria: login + online + offer accepted + IOMW + arrived"
+step "Wait for both lifecycle flows to complete"
+CG2_OK=true; P_OK=true
+
+if ! wait $CG2_PID; then
+  echo "  Maria lifecycle log:"
+  tail -30 "$CG2_LOG" 2>/dev/null
+  fail "Maria full lifecycle"
+  CG2_OK=false
 else
-  echo "  Maria flow log:"
-  tail -20 "$CG2_LOG" 2>/dev/null
-  fail "Maria accept flow"
-  exit 1
+  pass "Maria: login → online → accept → IOMW → arrive → verify → session → end → done"
 fi
 
-step "Verify booking matched via API"
-LIFECYCLE=$(api_wait_for_lifecycle "$PARENT_TOKEN" "$BOOKING_ID" "matched" 10)
-[[ "$LIFECYCLE" == "matched" || "$LIFECYCLE" == "confirmed" ]] \
-  && pass "Booking matched (lifecycle: $LIFECYCLE)" || fail "Booking not matched (lifecycle: $LIFECYCLE)"
+if ! wait $P_PID; then
+  echo "  Parent lifecycle log:"
+  tail -30 "$P_LOG" 2>/dev/null
+  fail "Parent full lifecycle"
+  P_OK=false
+else
+  pass "Parent: login → book → arrival → verify → session → end → rate → done"
+fi
 
-# Parent verify-matched — non-fatal due to XCTest driver restart
-step "Parent: Verify caregiver matched (non-fatal)"
-maestro test "$ROOT_DIR/flows/parent/verify-matched.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Parent sees match" || echo "  ⚠ WARN: Parent verify-matched (non-fatal, API confirmed)"
+[[ "$CG2_OK" == "false" || "$P_OK" == "false" ]] && exit 1
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 6: Session lifecycle via API
+# PHASE 6: API Verification
 # ═══════════════════════════════════════════════════════════════
-step "Session start + end via API (Veriff bypassed)"
-SESSION_CREATE=$(api_create_session "$CG2_TOKEN" "$BOOKING_ID")
-SESSION_ID=$(echo "$SESSION_CREATE" | python3 -c "
+step "Resolve booking and session IDs from API"
+sleep 3
+COMPLETED_BOOKING=$(curl -s -H "Authorization: Bearer $PARENT_TOKEN" \
+  "${BACKEND_URL}/bookings?limit=1&sort=-createdAt&lifecycle=completed" 2>/dev/null \
+  | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-d = data.get('session', data.get('data', data))
-print(d.get('id', ''))" 2>/dev/null)
-[[ -n "$SESSION_ID" && "$SESSION_ID" != "None" ]] && pass "Session: $SESSION_ID" || fail "Session creation"
+items = data.get('data', data.get('bookings', []))
+if isinstance(items, list) and len(items) > 0:
+    print(items[0].get('id', ''))
+" 2>/dev/null)
+[[ -n "$COMPLETED_BOOKING" ]] && BOOKING_ID="$COMPLETED_BOOKING"
+[[ -z "${BOOKING_ID:-}" ]] && BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
+[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || fail "No booking found"
 
-api_verify_session_start "$CG2_TOKEN" "$SESSION_ID" > /dev/null
-api_verify_session_start "$PARENT_TOKEN" "$SESSION_ID" > /dev/null
-pass "Dual verification complete"
+SESSION_ID=$(api_session_id "$PARENT_TOKEN" "$BOOKING_ID")
+[[ -n "$SESSION_ID" && "$SESSION_ID" != "None" ]] \
+  && pass "Session: $SESSION_ID" || fail "Could not resolve session ID"
 
-api_end_session "$CG2_TOKEN" "$SESSION_ID" > /dev/null
-pass "Session ended"
-
-# ═══════════════════════════════════════════════════════════════
-# PHASE 7: API Verification
-# ═══════════════════════════════════════════════════════════════
 step "Verify final state"
-sleep 3
 FINAL=$(api_booking_lifecycle "$PARENT_TOKEN" "$BOOKING_ID")
 echo "  Final lifecycle: $FINAL"
 [[ "$FINAL" == "completed" ]] && pass "Booking completed" || fail "Booking not completed: $FINAL"
 state_set "bookings[0].caregiver" "Maria"
 state_set "bookings[0].lifecycle" "completed"
+
+if [[ -n "${SESSION_ID:-}" && "$SESSION_ID" != "None" ]]; then
+  FINAL_SESSION=$(api_session_status "$PARENT_TOKEN" "$SESSION_ID")
+  [[ "$FINAL_SESSION" == "completed" ]] && pass "Session completed" || fail "Session not completed: $FINAL_SESSION"
+fi
 
 step "Verify offer statuses via API"
 OFFERS=$(curl -s -H "Authorization: Bearer ${ADMIN_TOKEN}" \
