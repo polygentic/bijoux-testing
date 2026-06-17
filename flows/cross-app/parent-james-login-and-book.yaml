@@ -1,0 +1,97 @@
+# Cross-app sub-flow: James Login + Create Quick Booking
+# Same as parent-login-and-book.yaml but for parent-james account.
+# Used by multi-parent E2E: James creates Booking 2.
+#
+# NOTE: Uses text-based selectors throughout because bijoux-parent-2 simulator
+# has intermittent XCTest accessibility ID lookup failures. Text matching is
+# more reliable across all iOS 26.5 simulators.
+appId: polygentic.bijouxParentApp
+tags:
+  - cross-app
+---
+# --- Login Phase ---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: "Get Started"
+    timeout: 15000
+
+- tapOn: "Get Started"
+
+- waitForAnimationToEnd
+
+- tapOn: "you@example.com"
+- inputText: "parent-james@test.bijoux.app"
+
+- tapOn: "Welcome Back"
+
+# Toggle password to plain text (Maestro XCTest can't input into SecureField on iOS 26.5)
+- tapOn: "Show password"
+
+- extendedWaitUntil:
+    visible: "Enter your password"
+    timeout: 5000
+
+- tapOn: "Enter your password"
+- inputText: "Test1234!"
+
+- tapOn: "Hide password"
+
+- tapOn: "Log In"
+
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: ".*Good.*James.*|.*Hi.*James.*|.*evening.*|.*morning.*|.*afternoon.*"
+    timeout: 10000
+
+- takeScreenshot: results/cross-app/parent-james-logged-in
+
+# --- Create Quick Booking Phase ---
+- tapOn:
+    text: "Request Now"
+    optional: true
+
+- waitForAnimationToEnd
+
+- takeScreenshot: results/cross-app/parent-james-booking-form
+
+# Dismiss any keyboard/autocomplete overlay
+- tapOn:
+    text: "Duration"
+    optional: true
+
+# Select first child — must match for booking to succeed
+- tapOn:
+    text: ".*Sofia.*|.*Max.*|.*Lily.*"
+
+# Swipe up to reveal submit button
+- swipe:
+    direction: UP
+    duration: 400
+
+- waitForAnimationToEnd
+
+# Submit booking
+- tapOn: "Request Caregiver"
+
+- waitForAnimationToEnd
+
+# Handle stubbed identity verification (if shown)
+- tapOn:
+    text: "Capture"
+    optional: true
+- waitForAnimationToEnd
+
+# If verification sent us back to booking form, submit again
+- tapOn:
+    text: "Request Caregiver"
+    optional: true
+- waitForAnimationToEnd
+
+# Should transition to matching/searching state
+- takeScreenshot: results/cross-app/parent-james-matching-started
