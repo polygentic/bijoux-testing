@@ -1,6 +1,7 @@
-# Combined: Caregiver Login + Go Online + Wait for Offer + Accept
+# Combined: Caregiver Login + Go Online + Wait for Offer + Accept + IOMW + Arrival
 # Runs as a single continuous flow to prevent XCTest driver restart from losing session.
 # The parent booking flow runs concurrently — this flow waits for the offer to arrive.
+# After accepting, continues through IOMW and arrival to keep XCTest driver alive.
 appId: polygentic.bijouxCaregiverApp
 tags:
   - cross-app
@@ -67,3 +68,26 @@ tags:
 - waitForAnimationToEnd
 
 - takeScreenshot: results/cross-app/caregiver-offer-accepted
+
+# --- IOMW Phase ---
+# After accepting, the app should show an "I'm On My Way" button
+- extendedWaitUntil:
+    visible: "I'm On My Way"
+    timeout: 15000
+
+- tapOn: "I'm On My Way"
+
+- waitForAnimationToEnd
+
+- takeScreenshot: results/cross-app/caregiver-iomw
+
+# --- Arrival Phase ---
+- extendedWaitUntil:
+    visible: "I've Arrived"
+    timeout: 30000
+
+- tapOn: "I've Arrived"
+
+- waitForAnimationToEnd
+
+- takeScreenshot: results/cross-app/caregiver-arrived
