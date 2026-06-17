@@ -116,13 +116,14 @@ api_wait_for_lifecycle() {
   return 1
 }
 
-# Report caregiver location. Args: token, latitude, longitude
+# Report caregiver location (updates profile lat/lng used by matching engine).
+# Args: token, latitude, longitude
 api_report_location() {
   local token="$1" lat="$2" lng="$3"
-  curl -s -X PUT "${BACKEND_URL}/location/update" \
+  curl -s -X PUT "${BACKEND_URL}/profile/caregiver" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer ${token}" \
-    -d "{\"latitude\": ${lat}, \"longitude\": ${lng}, \"accuracy\": 10}" > /dev/null 2>&1
+    -d "{\"latitude\": ${lat}, \"longitude\": ${lng}}" > /dev/null 2>&1
 }
 
 # Cancel all active bookings for a parent. Args: token
