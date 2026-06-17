@@ -42,7 +42,6 @@ appId: polygentic.bijouxParentApp
 
 - assertVisible: ".*address.*|.*Address.*|.*location.*|.*Location.*"
 
-- scroll
 
 - assertVisible: ".*Request Caregiver.*|.*Submit.*|.*Book.*"
 

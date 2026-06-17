@@ -50,7 +50,6 @@ appId: polygentic.bijouxParentApp
 - tapOn: "Re-enter your password"
 - inputText: "Test1234!"
 
-- scroll
 
 - tapOn:
     id: "signup-continue-button"

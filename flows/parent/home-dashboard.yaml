@@ -35,7 +35,6 @@ appId: polygentic.bijouxParentApp
 
 - takeScreenshot: home-dashboard-top
 
-- scroll
 
 - assertVisible:
     id: "home-schedule-card"

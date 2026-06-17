@@ -22,7 +22,6 @@ tags:
     text: "Enter address"
     optional: true
 - inputText: "123 Main St, Austin, TX"
-- scroll
 # Select first child (Sarah's children: Lily/Max, James's children: Sofia)
 - tapOn:
     text: ".*Lily.*|.*Max.*|.*Sofia.*|.*Age.*"

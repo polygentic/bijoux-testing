@@ -41,7 +41,6 @@ appId: polygentic.bijouxParentApp
 
 - takeScreenshot: preferences-screen-top
 
-- scroll
 
 - assertVisible: ".*Save Preferences.*"
 

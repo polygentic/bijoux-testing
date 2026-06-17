@@ -37,6 +37,5 @@ appId: polygentic.bijouxParentApp
 
 - takeScreenshot: activity-history-screen
 
-- scroll
 
 - takeScreenshot: activity-history-scrolled

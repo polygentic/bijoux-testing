@@ -31,7 +31,6 @@ appId: polygentic.bijouxParentApp
 
 - waitForAnimationToEnd
 
-- scroll
 
 - tapOn:
     id: "home-schedule-card"
@@ -44,6 +43,5 @@ appId: polygentic.bijouxParentApp
 
 - assertVisible: ".*address.*|.*Address.*|.*location.*|.*Location.*"
 
-- scroll
 
 - takeScreenshot: scheduled-booking-form-scrolled
