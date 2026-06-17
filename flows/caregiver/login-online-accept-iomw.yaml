@@ -1,0 +1,81 @@
+# Combined: Caregiver Login + Go Online + Wait for Offer + Accept + IOMW
+# Same as login-online-wait-accept.yaml but stops after IOMW (no arrival).
+# Used by cancel-after-match E2E: parent cancels after caregiver is on the way.
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - cross-app
+---
+# --- Login Phase ---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- waitForAnimationToEnd
+
+- tapOn: "Get Started"
+
+- waitForAnimationToEnd
+
+- tapOn: "you@example.com"
+- inputText: "cg-maria@test.bijoux.app"
+
+- tapOn: "Welcome Back"
+
+# Toggle password to plain text (Maestro XCTest can't input into SecureField on iOS 26.5)
+- tapOn: "Show password"
+
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+
+- tapOn: "Hide password"
+
+- tapOn:
+    id: "login-submit-button"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "Not Now"
+    optional: true
+
+- waitForAnimationToEnd
+
+- assertVisible: "Home"
+
+- takeScreenshot: results/cross-app/caregiver-maria-logged-in
+
+# --- Go Online Phase ---
+- tapOn:
+    text: ".*Go Online.*|.*Online.*"
+    optional: true
+
+- waitForAnimationToEnd
+
+- takeScreenshot: results/cross-app/caregiver-went-online
+
+# --- Wait for Offer + Accept Phase ---
+# The parent booking happens concurrently. Wait up to 3 minutes for offer dispatch.
+- extendedWaitUntil:
+    visible: "Accept"
+    timeout: 180000
+
+- takeScreenshot: results/cross-app/caregiver-offer-received
+
+- tapOn: "Accept"
+
+- waitForAnimationToEnd
+
+- takeScreenshot: results/cross-app/caregiver-offer-accepted
+
+# --- IOMW Phase ---
+# After accepting, the app should show an "I'm On My Way" button
+- extendedWaitUntil:
+    visible: "I'm On My Way"
+    timeout: 15000
+
+- tapOn: "I'm On My Way"
+
+- waitForAnimationToEnd
+
+- takeScreenshot: results/cross-app/caregiver-iomw

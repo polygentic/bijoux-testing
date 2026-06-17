@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # UAT: Cancel Booking After Match + IOMW — Verify Cancellation Fee
+#
+# Tests: Parent books → Caregiver accepts + IOMW → Parent cancels via API →
+#        Verify cancellation fee transaction
+#
+# Requires: 2 sims booted (bijoux-parent, bijoux-care), backend running with seed data
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,7 +26,10 @@ step()  { STEP=$((STEP + 1)); echo ""; echo "═══ STEP $STEP: $1 ═══"
 pass()  { echo "  ✓ PASS: $1"; }
 fail()  { echo "  ✗ FAIL: $1"; FAILURES=$((FAILURES + 1)); }
 
-step "Setup"
+# ═══════════════════════════════════════════════════════════════
+# PHASE 1: API Setup
+# ═══════════════════════════════════════════════════════════════
+step "Setup: tokens, cleanup, trust"
 PARENT_TOKEN=$(api_login "$PARENT_EMAIL" "$PARENT_PASSWORD")
 CG_TOKEN=$(api_login "$CAREGIVER_ONLINE_EMAIL" "$CAREGIVER_ONLINE_PASSWORD")
 ADMIN_TOKEN=$(api_login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")
@@ -29,24 +37,71 @@ api_cleanup_sessions "$CG_TOKEN" "$PARENT_TOKEN"
 api_cancel_active_bookings "$PARENT_TOKEN"
 api_set_online "$CG_TOKEN" "true"
 api_report_location "$CG_TOKEN" "${TEST_LAT}" "${TEST_LNG}"
-pass "Tokens + cleanup + caregiver online"
 
-step "Login caregiver"
-maestro test "$ROOT_DIR/flows/caregiver/login-maria.yaml" --device "$CAREGIVER_UDID" 2>&1 || { fail "CG login"; exit 1; }
-maestro test "$ROOT_DIR/flows/caregiver/go-online.yaml" --device "$CAREGIVER_UDID" 2>&1 || true
+# Ensure caregiver BG check and IDV are in matching-eligible state
+CAREGIVER_PROFILE_ID=$(curl -s -H "Authorization: Bearer $CG_TOKEN" \
+  "${BACKEND_URL}/profile/caregiver" 2>/dev/null \
+  | python3 -c "import sys,json; print(json.load(sys.stdin).get('profile',{}).get('id',''))" 2>/dev/null)
+if [[ -n "$CAREGIVER_PROFILE_ID" ]]; then
+  curl -s -X PUT "${BACKEND_URL}/trust/caregivers/${CAREGIVER_PROFILE_ID}/bg-status" \
+    -H "Content-Type: application/json" -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -d '{"status":"clear"}' > /dev/null 2>&1
+  curl -s -X PUT "${BACKEND_URL}/trust/caregivers/${CAREGIVER_PROFILE_ID}/idv-status" \
+    -H "Content-Type: application/json" -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -d '{"status":"approved"}' > /dev/null 2>&1
+fi
+pass "Tokens + cleanup + caregiver online + trust set"
 
-step "Parent books"
-maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$PARENT_UDID" 2>&1 || { fail "Parent book"; exit 1; }
+# ═══════════════════════════════════════════════════════════════
+# PHASE 2: Boot simulators
+# ═══════════════════════════════════════════════════════════════
+step "Boot simulators (fresh XCTest driver state)"
+xcrun simctl shutdown "$CAREGIVER_UDID" 2>/dev/null
+xcrun simctl shutdown "$PARENT_UDID" 2>/dev/null
+sleep 2
+xcrun simctl boot "$CAREGIVER_UDID" 2>/dev/null
+xcrun simctl boot "$PARENT_UDID" 2>/dev/null
+sleep 8
+pass "Both simulators booted"
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 3: Caregiver login+accept+IOMW (background) + Parent booking (foreground)
+# Combined flow: login → online → wait for offer → accept → IOMW (stops before arrival)
+# ═══════════════════════════════════════════════════════════════
+step "Caregiver: Login + online + accept + IOMW (background)"
+
+CG_LOG="$ROOT_DIR/results/cross-app/caregiver-cancel-test.log"
+maestro test "$ROOT_DIR/flows/caregiver/login-online-accept-iomw.yaml" --device "$CAREGIVER_UDID" \
+  > "$CG_LOG" 2>&1 &
+CG_PID=$!
+echo "  Caregiver flow started (PID: $CG_PID)"
+
+# Give caregiver 20s to login and go online before parent starts booking
+sleep 20
+
+step "Parent: Login and create booking"
+maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$PARENT_UDID" 2>&1 \
+  && pass "Parent login + booking" || { fail "Parent login + booking"; kill $CG_PID 2>/dev/null; exit 1; }
+
+step "Get booking ID from API"
 sleep 3
 BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
-pass "Booking: $BOOKING_ID"
+[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || { fail "No booking found"; kill $CG_PID 2>/dev/null; exit 1; }
 state_append_booking "$BOOKING_ID" "Sarah" "" "matching"
 
-step "Caregiver accepts + IOMW"
-sleep 5
-maestro test "$ROOT_DIR/flows/caregiver/accept-offer.yaml" --device "$CAREGIVER_UDID" 2>&1 || { fail "CG accept"; exit 1; }
-maestro test "$ROOT_DIR/flows/caregiver/iomw.yaml" --device "$CAREGIVER_UDID" 2>&1 || fail "CG IOMW"
+step "Wait for caregiver to accept + IOMW"
+if wait $CG_PID; then
+  pass "Caregiver: login + online + offer accepted + IOMW"
+else
+  echo "  Caregiver combined flow log:"
+  tail -20 "$CG_LOG" 2>/dev/null
+  fail "Caregiver combined flow"
+  exit 1
+fi
 
+# ═══════════════════════════════════════════════════════════════
+# PHASE 4: Cancel booking via API (after caregiver is on the way)
+# ═══════════════════════════════════════════════════════════════
 step "Parent cancels via API (after IOMW)"
 sleep 2
 CANCEL_RESPONSE=$(curl -s -X POST "${BACKEND_URL}/bookings/${BOOKING_ID}/cancel" \
