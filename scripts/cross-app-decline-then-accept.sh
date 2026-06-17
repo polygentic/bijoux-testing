@@ -4,6 +4,11 @@
 # Tests: Parent books → Emma declines → Maria accepts → IOMW → Arrival →
 #        Session lifecycle → Verify offer statuses
 #
+# Strategy: Broadcast model — both caregivers online, both get offers.
+# Emma's flow starts FIRST and is already waiting when the offer arrives,
+# so she declines before Maria (who starts later) can accept. Only acceptance
+# cancels other offers; decline leaves them pending.
+#
 # Requires: 3 sims booted (bijoux-parent, bijoux-care, bijoux-care-2), backend running
 
 set -euo pipefail
@@ -30,7 +35,7 @@ pass()  { echo "  ✓ PASS: $1"; }
 fail()  { echo "  ✗ FAIL: $1"; FAILURES=$((FAILURES + 1)); }
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 1: API Setup
+# PHASE 1: API Setup — both caregivers online + trust
 # ═══════════════════════════════════════════════════════════════
 step "Authenticate, clean up, set both caregivers online + trust"
 PARENT_TOKEN=$(api_login "$PARENT_EMAIL" "$PARENT_PASSWORD")
@@ -40,6 +45,8 @@ ADMIN_TOKEN=$(api_login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")
 api_cleanup_sessions "$CG1_TOKEN" "$PARENT_TOKEN"
 api_cleanup_sessions "$CG2_TOKEN" "$PARENT_TOKEN"
 api_cancel_active_bookings "$PARENT_TOKEN"
+
+# Both caregivers online — broadcast model sends offers to both
 api_set_online "$CG1_TOKEN" "true"
 api_set_online "$CG2_TOKEN" "true"
 api_report_location "$CG1_TOKEN" "${TEST_LAT}" "${TEST_LNG}"
@@ -47,14 +54,14 @@ api_report_location "$CG2_TOKEN" "${TEST_LAT}" "${TEST_LNG}"
 
 # Ensure both caregivers have BG check and IDV in matching-eligible state
 for CG_TK in "$CG1_TOKEN" "$CG2_TOKEN"; do
-  CG_PID=$(curl -s -H "Authorization: Bearer $CG_TK" \
+  CG_PROF_ID=$(curl -s -H "Authorization: Bearer $CG_TK" \
     "${BACKEND_URL}/profile/caregiver" 2>/dev/null \
     | python3 -c "import sys,json; print(json.load(sys.stdin).get('profile',{}).get('id',''))" 2>/dev/null)
-  if [[ -n "$CG_PID" ]]; then
-    curl -s -X PUT "${BACKEND_URL}/trust/caregivers/${CG_PID}/bg-status" \
+  if [[ -n "$CG_PROF_ID" ]]; then
+    curl -s -X PUT "${BACKEND_URL}/trust/caregivers/${CG_PROF_ID}/bg-status" \
       -H "Content-Type: application/json" -H "Authorization: Bearer $ADMIN_TOKEN" \
       -d '{"status":"clear"}' > /dev/null 2>&1
-    curl -s -X PUT "${BACKEND_URL}/trust/caregivers/${CG_PID}/idv-status" \
+    curl -s -X PUT "${BACKEND_URL}/trust/caregivers/${CG_PROF_ID}/idv-status" \
       -H "Content-Type: application/json" -H "Authorization: Bearer $ADMIN_TOKEN" \
       -d '{"status":"approved"}' > /dev/null 2>&1
   fi
@@ -65,21 +72,20 @@ pass "Cleanup done, both caregivers online + location + trust set"
 # PHASE 2: Boot simulators
 # ═══════════════════════════════════════════════════════════════
 step "Boot simulators (fresh XCTest driver state)"
-xcrun simctl shutdown "$CAREGIVER_UDID" 2>/dev/null
-xcrun simctl shutdown "$CAREGIVER_UDID_2" 2>/dev/null
-xcrun simctl shutdown "$PARENT_UDID" 2>/dev/null
+xcrun simctl shutdown "$CAREGIVER_UDID" 2>/dev/null || true
+xcrun simctl shutdown "$CAREGIVER_UDID_2" 2>/dev/null || true
+xcrun simctl shutdown "$PARENT_UDID" 2>/dev/null || true
 sleep 2
-xcrun simctl boot "$CAREGIVER_UDID" 2>/dev/null
-xcrun simctl boot "$CAREGIVER_UDID_2" 2>/dev/null
-xcrun simctl boot "$PARENT_UDID" 2>/dev/null
+xcrun simctl boot "$CAREGIVER_UDID" 2>/dev/null || true
+xcrun simctl boot "$CAREGIVER_UDID_2" 2>/dev/null || true
+xcrun simctl boot "$PARENT_UDID" 2>/dev/null || true
 sleep 8
 pass "All 3 simulators booted"
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 3: Concurrent flows — both caregivers (background) + parent (foreground)
-# Emma: login → online → wait for offer → decline (combined flow)
-# Maria: login → online → wait for offer → accept → IOMW → arrival (combined flow)
-# Both run as continuous Maestro processes to prevent XCTest driver session loss.
+# PHASE 3: Emma starts FIRST (login + online + wait for decline)
+# She must be already waiting when the offer arrives, so she declines
+# before Maria's flow (started later) can accept.
 # ═══════════════════════════════════════════════════════════════
 step "Emma: Login + online + wait + decline (background)"
 CG1_LOG="$ROOT_DIR/results/cross-app/caregiver-emma-decline.log"
@@ -88,27 +94,23 @@ maestro test "$ROOT_DIR/flows/caregiver/login-online-wait-decline.yaml" --device
 CG1_PID=$!
 echo "  Emma flow started (PID: $CG1_PID)"
 
-step "Maria: Login + online + wait + accept + IOMW + arrival (background)"
-CG2_LOG="$ROOT_DIR/results/cross-app/caregiver-maria-accept.log"
-maestro test "$ROOT_DIR/flows/caregiver/login-online-wait-accept.yaml" --device "$CAREGIVER_UDID_2" \
-  > "$CG2_LOG" 2>&1 &
-CG2_PID=$!
-echo "  Maria flow started (PID: $CG2_PID)"
-
-# Give both caregivers 25s to login and go online before parent starts booking
+# Give Emma 25s to login and go online — she'll be idle, waiting for offer
 sleep 25
 
 step "Parent: Login and book"
 maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Parent booked" || { fail "Parent booking"; kill $CG1_PID $CG2_PID 2>/dev/null; exit 1; }
+  && pass "Parent booked" || { fail "Parent booking"; kill $CG1_PID 2>/dev/null; exit 1; }
 
 sleep 3
 BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
-[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || { fail "No booking found"; kill $CG1_PID $CG2_PID 2>/dev/null; exit 1; }
+[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || { fail "No booking found"; kill $CG1_PID 2>/dev/null; exit 1; }
 state_append_booking "$BOOKING_ID" "Sarah" "" "matching"
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 4: Wait for both caregiver flows to complete
+# PHASE 4: Wait for Emma to decline BEFORE starting Maria
+# Emma is already waiting and will decline immediately on seeing the offer.
+# Only after Emma declines do we start Maria's flow. Maria's offer stays
+# pending (decline doesn't cancel other offers, only acceptance does).
 # ═══════════════════════════════════════════════════════════════
 step "Wait for Emma to decline"
 if wait $CG1_PID; then
@@ -118,6 +120,17 @@ else
   tail -20 "$CG1_LOG" 2>/dev/null
   fail "Emma decline flow"
 fi
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 5: Start Maria's flow — her offer should still be pending
+# In the broadcast model, Emma's decline does NOT cancel Maria's offer.
+# ═══════════════════════════════════════════════════════════════
+step "Maria: Login + online + wait + accept + IOMW + arrival"
+CG2_LOG="$ROOT_DIR/results/cross-app/caregiver-maria-accept.log"
+maestro test "$ROOT_DIR/flows/caregiver/login-online-wait-accept.yaml" --device "$CAREGIVER_UDID_2" \
+  > "$CG2_LOG" 2>&1 &
+CG2_PID=$!
+echo "  Maria flow started (PID: $CG2_PID)"
 
 step "Wait for Maria to accept + IOMW + arrive"
 if wait $CG2_PID; then
@@ -140,7 +153,7 @@ maestro test "$ROOT_DIR/flows/parent/verify-matched.yaml" --device "$PARENT_UDID
   && pass "Parent sees match" || echo "  ⚠ WARN: Parent verify-matched (non-fatal, API confirmed)"
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 5: Session lifecycle via API
+# PHASE 6: Session lifecycle via API
 # ═══════════════════════════════════════════════════════════════
 step "Session start + end via API (Veriff bypassed)"
 SESSION_CREATE=$(api_create_session "$CG2_TOKEN" "$BOOKING_ID")
@@ -159,7 +172,7 @@ api_end_session "$CG2_TOKEN" "$SESSION_ID" > /dev/null
 pass "Session ended"
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 6: API Verification
+# PHASE 7: API Verification
 # ═══════════════════════════════════════════════════════════════
 step "Verify final state"
 sleep 3

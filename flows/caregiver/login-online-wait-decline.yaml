@@ -24,6 +24,12 @@ tags:
 # Toggle password to plain text (Maestro XCTest can't input into SecureField on iOS 26.5)
 - tapOn: "Show password"
 
+# Wait for SwiftUI to swap SecureField → TextField (may take extra time under load)
+- extendedWaitUntil:
+    visible:
+      id: "login-password-field"
+    timeout: 5000
+
 - tapOn:
     id: "login-password-field"
 - inputText: "Test1234!"

@@ -56,11 +56,11 @@ pass "Tokens + cleanup + caregiver online + trust set"
 # PHASE 2: Boot simulators
 # ═══════════════════════════════════════════════════════════════
 step "Boot simulators (fresh XCTest driver state)"
-xcrun simctl shutdown "$CAREGIVER_UDID" 2>/dev/null
-xcrun simctl shutdown "$PARENT_UDID" 2>/dev/null
+xcrun simctl shutdown "$CAREGIVER_UDID" 2>/dev/null || true
+xcrun simctl shutdown "$PARENT_UDID" 2>/dev/null || true
 sleep 2
-xcrun simctl boot "$CAREGIVER_UDID" 2>/dev/null
-xcrun simctl boot "$PARENT_UDID" 2>/dev/null
+xcrun simctl boot "$CAREGIVER_UDID" 2>/dev/null || true
+xcrun simctl boot "$PARENT_UDID" 2>/dev/null || true
 sleep 8
 pass "Both simulators booted"
 
