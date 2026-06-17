@@ -76,25 +76,30 @@ tags:
 - waitForAnimationToEnd
 
 # ═══ WAIT FOR SESSION ACTIVE (caregiver must also verify) ═══
+# NOTE: All text-based selectors below — PARENT_UDID_2 has intermittent
+# XCTest accessibility ID lookup failures.
 - extendedWaitUntil:
     visible: ".*In Progress.*|.*End Job.*"
     timeout: 120000
+# If on home dashboard, tap the session card to enter session detail
 - tapOn:
-    id: "home-active-session-card"
+    text: ".*Active.*Session.*|.*In Progress.*"
     optional: true
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/parent-james-session-active
+# Wait for End Job button to appear
 - extendedWaitUntil:
-    visible:
-      id: "active-session-end-button"
+    visible: ".*End Job.*"
     timeout: 30000
 
 # ═══ END JOB ═══
-- tapOn:
-    id: "active-session-end-button"
+- tapOn: "End Job"
 - waitForAnimationToEnd
-- tapOn:
-    id: "end-job-confirm-button"
+# Confirm end (EndJobConfirmationView)
+- extendedWaitUntil:
+    visible: ".*End Session.*|.*Confirm End Job.*"
+    timeout: 10000
+- tapOn: "Confirm End Job"
 - waitForAnimationToEnd
 
 # ═══ VERIFY END (identity verification) ═══
@@ -112,9 +117,8 @@ tags:
 
 # ═══ RATE (tap star area for rating, then Done) ═══
 - tapOn:
-    id: "summary-rating-label"
+    text: ".*star.*|.*rating.*|.*Rate.*"
     optional: true
 - waitForAnimationToEnd
-- tapOn:
-    id: "summary-done-button"
+- tapOn: "Done"
 - waitForAnimationToEnd
