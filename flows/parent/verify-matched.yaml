@@ -4,6 +4,8 @@ appId: polygentic.bijouxParentApp
 tags:
   - sub-flow
 ---
+- launchApp
+- waitForAnimationToEnd
 # Wait for caregiver match (real matching engine — may take 10-30s)
 - extendedWaitUntil:
     visible: ".*Caregiver Found.*|.*Found.*|.*matched.*"

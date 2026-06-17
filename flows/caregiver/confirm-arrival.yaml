@@ -3,6 +3,8 @@
 # NOTE: Sub-flow. Caregiver must have tapped IOMW and be in en-route state.
 appId: polygentic.bijouxCaregiverApp
 ---
+- launchApp
+- waitForAnimationToEnd
 # Wait for "I've Arrived" button to appear
 - extendedWaitUntil:
     visible: "I've Arrived"

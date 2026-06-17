@@ -4,6 +4,8 @@ appId: polygentic.bijouxCaregiverApp
 tags:
   - sub-flow
 ---
+- launchApp
+- waitForAnimationToEnd
 - extendedWaitUntil:
     visible: "I'm On My Way"
     timeout: 15000
