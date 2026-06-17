@@ -65,50 +65,59 @@ api_report_location "$CAREGIVER_TOKEN" "${TEST_LAT}" "${TEST_LNG}"
 pass "Stale bookings/sessions cleaned, caregiver online + location set"
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 2: Login caregiver on simulator FIRST (so she's ready for offers)
+# PHASE 2: Boot simulators
 # ═══════════════════════════════════════════════════════════════
-step "Caregiver: Login on simulator"
+step "Boot simulators (fresh XCTest driver state)"
 
-# Reboot simulator to ensure fresh XCTest driver state (iOS 26.5 stability workaround)
-xcrun simctl shutdown "$CAREGIVER_UDID" 2>/dev/null; sleep 2
-xcrun simctl boot "$CAREGIVER_UDID" 2>/dev/null; sleep 8
-
-maestro test "$ROOT_DIR/flows/caregiver/login-maria.yaml" --device "$CAREGIVER_UDID" 2>&1 \
-  && pass "Caregiver login" || { fail "Caregiver login"; exit 1; }
-
-step "Caregiver: Go online on simulator"
-
-maestro test "$ROOT_DIR/flows/caregiver/go-online.yaml" --device "$CAREGIVER_UDID" 2>&1 \
-  && pass "Caregiver online" || fail "Caregiver go-online"
+# Reboot both simulators for clean XCTest driver state (iOS 26.5 stability workaround)
+xcrun simctl shutdown "$CAREGIVER_UDID" 2>/dev/null
+xcrun simctl shutdown "$PARENT_UDID" 2>/dev/null
+sleep 2
+xcrun simctl boot "$CAREGIVER_UDID" 2>/dev/null
+xcrun simctl boot "$PARENT_UDID" 2>/dev/null
+sleep 8
+pass "Both simulators booted"
 
 # ═══════════════════════════════════════════════════════════════
-# PHASE 3: Parent logs in and creates booking
+# PHASE 3: Caregiver login+online+accept (background) + Parent booking (foreground)
+# The caregiver flow runs as a SINGLE continuous Maestro process to prevent
+# XCTest driver restarts from killing the app session. It logs in, goes online,
+# then waits up to 3 minutes for the offer to arrive from the matching engine.
+# The parent flow runs after a delay to give the caregiver time to log in.
 # ═══════════════════════════════════════════════════════════════
+step "Caregiver: Login + go online + wait for offer (background)"
+
+CG_LOG="$ROOT_DIR/results/cross-app/caregiver-combined.log"
+maestro test "$ROOT_DIR/flows/caregiver/login-online-wait-accept.yaml" --device "$CAREGIVER_UDID" \
+  > "$CG_LOG" 2>&1 &
+CG_PID=$!
+echo "  Caregiver flow started (PID: $CG_PID)"
+
+# Give caregiver 20s to login and go online before parent starts booking
+sleep 20
+
 step "Parent: Login and create booking"
 
-# Reboot simulator to ensure fresh XCTest driver state (iOS 26.5 stability workaround)
-xcrun simctl shutdown "$PARENT_UDID" 2>/dev/null; sleep 2
-xcrun simctl boot "$PARENT_UDID" 2>/dev/null; sleep 8
-
 maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$PARENT_UDID" 2>&1 \
-  && pass "Parent login + booking" || { fail "Parent login + booking"; exit 1; }
+  && pass "Parent login + booking" || { fail "Parent login + booking"; kill $CG_PID 2>/dev/null; exit 1; }
 
 step "Get booking ID from API"
 sleep 3
 BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
-[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || { fail "No booking found"; exit 1; }
+[[ -n "$BOOKING_ID" ]] && pass "Booking: $BOOKING_ID" || { fail "No booking found"; kill $CG_PID 2>/dev/null; exit 1; }
 state_append_booking "$BOOKING_ID" "Sarah" "" "matching"
 
-# ═══════════════════════════════════════════════════════════════
-# PHASE 4: Wait for matching engine, caregiver accepts on sim
-# ═══════════════════════════════════════════════════════════════
-step "Wait for matching engine to dispatch offers"
-sleep 5
+step "Wait for caregiver to accept offer"
 
-step "Caregiver: Accept offer on simulator"
-
-maestro test "$ROOT_DIR/flows/caregiver/accept-offer.yaml" --device "$CAREGIVER_UDID" 2>&1 \
-  && pass "Caregiver accepted offer" || { fail "Caregiver offer acceptance"; exit 1; }
+# Wait for the background caregiver flow to complete (it's waiting for + accepting the offer)
+if wait $CG_PID; then
+  pass "Caregiver login + online + offer accepted"
+else
+  echo "  Caregiver combined flow log:"
+  tail -20 "$CG_LOG" 2>/dev/null
+  fail "Caregiver offer acceptance"
+  exit 1
+fi
 
 step "Verify booking matched via API"
 LIFECYCLE=$(api_wait_for_lifecycle "$PARENT_TOKEN" "$BOOKING_ID" "matched" 10)
