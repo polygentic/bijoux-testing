@@ -54,7 +54,6 @@ tags:
     text: "Enter address"
     optional: true
 - inputText: "123 Main St, Austin, TX"
-- scroll
 
 # Select first child
 - tapOn:

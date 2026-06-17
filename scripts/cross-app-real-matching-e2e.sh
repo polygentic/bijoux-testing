@@ -69,6 +69,10 @@ pass "Stale bookings/sessions cleaned, caregiver online + location set"
 # ═══════════════════════════════════════════════════════════════
 step "Caregiver: Login on simulator"
 
+# Reboot simulator to ensure fresh XCTest driver state (iOS 26.5 stability workaround)
+xcrun simctl shutdown "$CAREGIVER_UDID" 2>/dev/null; sleep 2
+xcrun simctl boot "$CAREGIVER_UDID" 2>/dev/null; sleep 8
+
 maestro test "$ROOT_DIR/flows/caregiver/login-maria.yaml" --device "$CAREGIVER_UDID" 2>&1 \
   && pass "Caregiver login" || { fail "Caregiver login"; exit 1; }
 
@@ -81,6 +85,10 @@ maestro test "$ROOT_DIR/flows/caregiver/go-online.yaml" --device "$CAREGIVER_UDI
 # PHASE 3: Parent logs in and creates booking
 # ═══════════════════════════════════════════════════════════════
 step "Parent: Login and create booking"
+
+# Reboot simulator to ensure fresh XCTest driver state (iOS 26.5 stability workaround)
+xcrun simctl shutdown "$PARENT_UDID" 2>/dev/null; sleep 2
+xcrun simctl boot "$PARENT_UDID" 2>/dev/null; sleep 8
 
 maestro test "$ROOT_DIR/flows/cross-app/parent-login-and-book.yaml" --device "$PARENT_UDID" 2>&1 \
   && pass "Parent login + booking" || { fail "Parent login + booking"; exit 1; }
