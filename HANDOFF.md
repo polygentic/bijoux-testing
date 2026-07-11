@@ -9,163 +9,554 @@ This repo will be the autonomous UAT testing infrastructure for the bijoux platf
 - **Admin web portal** (`/Users/polygentic/Documents/dev/bijouxAdmin`)
 - **Backend API** (`/Users/polygentic/Documents/dev/bijoux-backend`)
 
-## What Was Decided
+---
 
-A full brainstorming and spec-driven-development process produced:
+## Bug Fix Handoff — UAT Run 2026-06-16
 
-- **Spec:** `docs/superpowers/specs/2026-06-10-bijoux-testing-infrastructure-design.md`
-- **Plan:** `docs/superpowers/plans/2026-06-10-bijoux-testing-infrastructure.md`
+Generated from E2E test results: `results/e2e-run-2026-06-16.json`
+Jira project: BA | All tickets have fix recommendations in comments.
 
-Key decisions made:
-- **Maestro MCP** for iOS app automation (declarative YAML flows)
-- **Claude in Chrome** for admin portal automation (already configured)
-- **Jira REST API v3** for test reporting (token verified and stored at `~/.config/bijoux/jira.env`)
-- **Fully autonomous** — Claude runs the full suite unattended, reports to Jira
-- **Local backend** — docker compose + seed, not staging
-- **All three apps** from day one
-- **Existing Jira project BA** — no new board needed
+**Results:** 55 pass, 13 fail, 4 not testable out of 72 total tests across 4 layers.
+**Bugs filed:** 16 (1 SEV-1, 4 SEV-2, 7 SEV-3, 3 L1/infra, 1 DONE)
 
-## How to Execute
+### Repo Assignment Summary
 
-### Step 1: Initialize this repo
-
-```
-ACTIVATE: IMPLEMENTER
-```
-
-Then invoke the plan:
-
-```
-Execute the implementation plan at docs/superpowers/plans/2026-06-10-bijoux-testing-infrastructure.md using subagent-driven-development.
-```
-
-### Step 2: The plan has 15 tasks
-
-| Task | What | Where |
+| Repo | Bugs | Count |
 |------|------|-------|
-| 1 | Install Maestro CLI + MCP | System-level |
-| 2 | Create repo structure (.gitignore, dirs, conventions doc) | This repo |
-| 3 | Config + simulator scripts | This repo |
-| 4 | Backend + build scripts | This repo |
-| 5 | Jira helper scripts | This repo |
-| 6 | Test fixtures | This repo |
-| 7 | Accessibility identifiers — parent app | bijoux-ios (sibling repo) |
-| 8 | Accessibility identifiers — caregiver app | bijouxCaregiverApp (sibling repo) |
-| 9 | Maestro flows — parent app | This repo |
-| 10 | Maestro flows — caregiver app | This repo |
-| 11 | Admin portal flows (Claude in Chrome) | This repo |
-| 12 | Cross-app flow | This repo |
-| 13 | CLAUDE.md agent playbook | This repo |
-| 14 | Orchestrate script | This repo |
-| 15 | End-to-end validation | All repos |
+| bijoux-backend | BA-281, BA-282, BA-284, BA-285, BA-287, BA-288 | 6 |
+| bijouxAdmin | BA-278, BA-279, BA-280, BA-282, BA-283, BA-284, BA-286, BA-288, BA-289 | 9 |
+| bijoux-testing | BA-274 | 1 |
+| bijoux-ios (parent) | — | 0 |
+| bijouxCaregiverApp | — | 0 |
 
-Tasks 7 and 8 modify sibling repos (adding `.accessibilityIdentifier()` to SwiftUI views). The plan has exact file paths and identifier names for every view in both apps.
+Note: BA-275 and BA-276 are caused by BA-274 (cascade). BA-277 is DONE. BA-282, BA-284, BA-288 span both backend and admin.
 
-### Step 3: After execution
+### Dependency Order
 
-Once all tasks are done, you can run the full UAT suite:
-
-```bash
-./scripts/orchestrate.sh
-```
-
-Or tell Claude: "run UAT"
-
-## Prerequisites Already Done
-
-- [x] Jira API token verified and stored at `~/.config/bijoux/jira.env`
-- [x] Jira email: `michael@polygentic.com`
-- [x] Jira project BA confirmed (project ID 10069, cloud ID b218a2e4-2e02-42c8-b10b-9cf5509de93d)
-- [x] Jira API v3 search endpoint: `/rest/api/3/search/jql` (NOT `/search` — deprecated)
-- [x] Jira transitions: To Do (11) → In Progress (21) → Done (31)
-- [x] Jira issue types: Epic (10093), Story (10092), Task (10090), Bug (10091), Subtask (10094)
-- [x] GitHub CLI authenticated as `polygentic`
-- [x] Claude in Chrome MCP configured
-- [x] All four codebases explored (test counts, view inventories, accessibility gaps documented)
+1. **bijoux-testing** (BA-274) — unblocks L1 re-testing
+2. **bijoux-backend** (BA-281, BA-282, BA-284, BA-285, BA-287, BA-288) — unblocks admin frontend fixes
+3. **bijouxAdmin** (all 9 bugs) — some depend on backend endpoints existing
+4. Re-run full E2E suite to validate
 
 ---
 
-## Active Project: Real Multi-Simulator E2E Matching Flow
+## Backend Session Handoff (bijoux-backend)
 
-**Status:** PLANNED — awaiting execution
-**Spec:** `docs/specs/2026-06-12-real-matching-e2e.md`
-**Plan:** `docs/superpowers/plans/2026-06-12-real-matching-e2e.md`
-**Skill:** Use `superpowers:subagent-driven-development` to execute
+Copy everything below the line into the backend Claude Code session:
 
-### What This Does
+---
 
-Tests the full real matching flow across 4 iOS simulators (2 parent, 2 caregiver) — no simulate accept, real matching engine, real offer delivery, real session lifecycle through booking → match → IOMW → arrival → session start → session end → rating → payment verification.
+### BACKEND FIX INSTRUCTIONS
 
-### Task Tracker
+Fix 6 bugs from UAT run 2026-06-16. Jira tickets have full context. Do not make changes beyond what's described. Commit each fix individually. Push after each commit.
 
-| # | Task | Status | Blocked By | Files |
-|---|------|--------|------------|-------|
-| 1 | Add test account env vars | pending | — | `config/environment.sh` |
-| 2 | Expand to 4 simulators | pending | 1 | `config/environment.sh`, `config/simulators.sh` |
-| 3 | Remove all simulate accept refs | pending | 1, 2 | `scripts/cross-app-booking-lifecycle.sh`, flows/ |
-| 4 | File Jira ticket (remove simulate) | pending | — | Jira API |
-| 5 | Create API helper library | pending | 1 | `scripts/lib/api-helpers.sh` |
-| 6 | Login flows for James + Maria | pending | 1 | `flows/parent/login-james.yaml`, `flows/caregiver/login-maria.yaml` |
-| 7 | Caregiver sub-flows (go-online, IOMW) | pending | 1 | `flows/caregiver/go-online.yaml`, `flows/caregiver/iomw.yaml` |
-| 8 | Parent sub-flows (verify-matched, rate) | pending | 1 | `flows/parent/verify-matched.yaml`, `flows/parent/rate-session.yaml` |
-| 9 | Happy path E2E script | pending | 5, 6, 7, 8 | `scripts/cross-app-real-matching-e2e.sh` |
-| 10 | Decline-then-accept script | pending | 5, 6, 7 | `scripts/cross-app-decline-then-accept.sh`, `flows/caregiver/decline-offer.yaml` |
-| 11 | Multi-parent concurrent script | pending | 5, 6, 7, 8 | `scripts/cross-app-multi-parent.sh` |
-| 12 | Cancel-after-match script | pending | 5, 7 | `scripts/cross-app-cancel-after-match.sh` |
-| 13 | Update run-suite.sh | pending | 2 | `scripts/run-suite.sh` |
-| 14 | Selector validation (inspect real UI) | pending | 6, 7, 8, 9 | All sub-flows |
-| 15 | Run E2E + fix failures | pending | 9-14 | All scripts |
-| 16 | Update documentation | pending | 15 | `docs/uat-test-plan.md`, spec |
+#### BA-281 [SEV-3] — Offer status 'Cancelled' for accepted offers on booking completion
+https://polygentic.atlassian.net/browse/BA-281
 
-### Acceptance Criteria (from spec)
+When a session completes, ALL offers (including the accepted one) get bulk-updated to 'cancelled'. The accepted offer should be preserved or marked 'completed'.
 
-- **AC-1:** 4 simulators boot with apps installed
-- **AC-2:** Happy path E2E passes (book → match → session → payment)
-- **AC-3:** Decline-then-accept (Emma declines, Maria accepts)
-- **AC-4:** Multi-parent concurrent bookings (Sarah + James)
-- **AC-5:** Cancel after match with fee verification
-- **AC-6:** Earnings and payment verified via API
-- **AC-7:** Zero simulate accept references remain
-- **AC-8:** All existing 38 Maestro flows still pass
+**File:** `src/modules/session/service.ts` lines ~277-296
 
-### How to Execute (for a new session)
-
-```bash
-# Read the plan
-cat docs/superpowers/plans/2026-06-12-real-matching-e2e.md
-
-# Execute using subagent-driven-development
-# Tell Claude: "Execute the plan at docs/superpowers/plans/2026-06-12-real-matching-e2e.md using subagent-driven-development"
+Current code:
+```typescript
+await prisma.matchOffer.updateMany({
+  where: {
+    matchRequestId: matchRequest.id,
+    status: { in: ['pending', 'accepted'] },
+  },
+  data: { status: 'cancelled' },
+});
 ```
 
-### Global State Reset (between E2E runs)
+Fix — split into two updates:
+```typescript
+// Cancel only pending offers
+await prisma.matchOffer.updateMany({
+  where: { matchRequestId: matchRequest.id, status: 'pending' },
+  data: { status: 'cancelled' },
+});
+// Mark accepted offer as completed
+await prisma.matchOffer.updateMany({
+  where: { matchRequestId: matchRequest.id, status: 'accepted' },
+  data: { status: 'completed' },
+});
+```
 
+Also check `adminOverrideSession` / force-complete in `src/modules/admin/service.ts` (~line 1330) for the same pattern.
+
+#### BA-282 [SEV-2] — Caregiver reactivation endpoint missing
+https://polygentic.atlassian.net/browse/BA-282
+
+No `PUT /trust/caregivers/:id/reactivate` endpoint. The frontend Reactivate button calls the approve endpoint which may fail.
+
+**File:** `src/modules/trust/routes.ts` — insert after suspend route (~line 156)
+
+```typescript
+// PUT /api/v1/trust/caregivers/:id/reactivate — Admin: reactivate suspended caregiver
+app.put(
+  '/caregivers/:id/reactivate',
+  { preHandler: [requireAuth(opts.env), requireRole('admin')] },
+  async (request, reply) => {
+    const params = parseBody(caregiverIdParamSchema, request.params);
+    const result = await reactivateCaregiver(deps, params.id);
+    return reply.send(result);
+  },
+);
+```
+
+**File:** `src/modules/trust/service.ts` — add after `suspendCaregiver` (~line 330):
+
+```typescript
+export async function reactivateCaregiver(
+  deps: TrustServiceDeps,
+  caregiverProfileId: string,
+): Promise<{ status: string; isApproved: boolean }> {
+  const profile = await deps.prisma.caregiverProfile.findUnique({
+    where: { id: caregiverProfileId },
+    select: { id: true, status: true },
+  });
+  if (!profile) throw new NotFoundError('CaregiverProfile');
+  if (profile.status !== 'suspended') {
+    throw new BadRequestError('Only suspended caregivers can be reactivated');
+  }
+  await deps.prisma.caregiverProfile.update({
+    where: { id: caregiverProfileId },
+    data: { status: 'approved', isApproved: true },
+  });
+  return { status: 'approved', isApproved: true };
+}
+```
+
+Don't forget to export from service and import in routes.
+
+#### BA-284 [SEV-3] — Backend missing hasRating filter for sessions
+https://polygentic.atlassian.net/browse/BA-284
+
+**File:** `src/modules/admin/schemas.ts` lines 84-87 — add hasRating:
+```typescript
+export const adminSessionsQuerySchema = paginationQuerySchema.extend({
+  status: z.enum(['not_started', 'in_progress', 'completed', 'disputed']).optional(),
+  caregiverProfileId: z.string().uuid().optional(),
+  hasRating: z.enum(['true', 'false']).optional(),
+});
+```
+
+**File:** `src/modules/admin/service.ts` — in `listSessionsAdmin` (~line 729), add to the `where` builder:
+```typescript
+if (input.hasRating === 'true') {
+  where.rating = { not: null };
+} else if (input.hasRating === 'false') {
+  where.rating = null;
+}
+```
+
+#### BA-285 [SEV-2] — Missing GET /admin/incidents/:id endpoint
+https://polygentic.atlassian.net/browse/BA-285
+
+Backend has list and resolve but no detail endpoint. Frontend calls `GET /admin/incidents/{id}` which 404s.
+
+**File:** `src/modules/admin/routes.ts` — insert after GET /incidents list route (after line ~341):
+```typescript
+// GET /api/v1/admin/incidents/:id — Incident detail
+app.get(
+  '/incidents/:id',
+  { preHandler: [requireAuth(opts.env), requireRole('admin')] },
+  async (request, reply) => {
+    const { id } = parseBody(idParamSchema, request.params);
+    const incident = await getIncidentDetailAdmin(deps, id);
+    return reply.send({ incident });
+  },
+);
+```
+
+**File:** `src/modules/admin/service.ts` — add new function:
+```typescript
+export async function getIncidentDetailAdmin(deps: AdminServiceDeps, incidentId: string) {
+  const incident = await deps.prisma.caregiverIncident.findUnique({
+    where: { id: incidentId },
+    include: {
+      caregiverProfile: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
+  if (!incident) throw new NotFoundError('Incident');
+  return {
+    id: incident.id,
+    type: incident.type,
+    description: incident.description,
+    caregiverProfileId: incident.caregiverProfileId,
+    caregiverProfile: incident.caregiverProfile,
+    bookingId: incident.bookingId,
+    latitude: incident.latitude,
+    longitude: incident.longitude,
+    resolvedAt: incident.resolvedAt?.toISOString() ?? null,
+    resolutionNotes: incident.resolutionNotes,
+    createdAt: incident.createdAt.toISOString(),
+  };
+}
+```
+
+Export from service, import in routes.
+
+#### BA-287 [SEV-1] — Caregiver approval bypasses BG/IDV prerequisite check
+https://polygentic.atlassian.net/browse/BA-287
+
+**File:** `src/modules/trust/service.ts` — `approveCaregiver` function (lines 283-304)
+
+Add validation before the update at line ~298:
+```typescript
+// ADD before the prisma.caregiverProfile.update call:
+const bgCheck = await deps.prisma.backgroundCheck.findFirst({
+  where: { caregiverProfileId },
+  orderBy: { createdAt: 'desc' },
+  select: { status: true },
+});
+const idvResult = await deps.prisma.idvResult.findFirst({
+  where: { caregiverProfileId },
+  orderBy: { createdAt: 'desc' },
+  select: { status: true },
+});
+if (!bgCheck || bgCheck.status !== 'clear') {
+  throw new BadRequestError('Background check must be clear before approval');
+}
+if (!idvResult || idvResult.status !== 'approved') {
+  throw new BadRequestError('Identity verification must be approved before approval');
+}
+```
+
+#### BA-288 [SEV-3] — Missing Set BG/IDV Status endpoints
+https://polygentic.atlassian.net/browse/BA-288
+
+Note: Force Complete and Mark Disputed buttons already exist in frontend. The session override endpoint also exists. The missing pieces are BG/IDV manual status override endpoints.
+
+**File:** `src/modules/trust/routes.ts` — add:
+```typescript
+// PUT /api/v1/trust/caregivers/:id/bg-status
+app.put(
+  '/caregivers/:id/bg-status',
+  { preHandler: [requireAuth(opts.env), requireRole('admin')] },
+  async (request, reply) => {
+    const params = parseBody(caregiverIdParamSchema, request.params);
+    const body = parseBody(setBgStatusBodySchema, request.body);
+    const result = await setBgCheckStatus(deps, params.id, body.status, body.reason);
+    return reply.send(result);
+  },
+);
+
+// PUT /api/v1/trust/caregivers/:id/idv-status
+app.put(
+  '/caregivers/:id/idv-status',
+  { preHandler: [requireAuth(opts.env), requireRole('admin')] },
+  async (request, reply) => {
+    const params = parseBody(caregiverIdParamSchema, request.params);
+    const body = parseBody(setIdvStatusBodySchema, request.body);
+    const result = await setIdvStatus(deps, params.id, body.status, body.reason);
+    return reply.send(result);
+  },
+);
+```
+
+Add corresponding schemas (status enum + reason string) and service functions that create/update BackgroundCheck and IdvResult records.
+
+---
+
+## Admin Portal Session Handoff (bijouxAdmin)
+
+Copy everything below the line into the admin portal Claude Code session:
+
+---
+
+### ADMIN PORTAL FIX INSTRUCTIONS
+
+Fix 9 bugs from UAT run 2026-06-16. Jira tickets have full context. Do not make changes beyond what's described. Commit each fix individually. Push after each commit.
+
+Some fixes depend on new backend endpoints (BA-282, BA-284, BA-288). Implement the frontend hooks/UI now — they'll work once the backend session deploys the endpoints.
+
+#### BA-278 [SEV-2] — Audit log crashes with TypeError null.slice()
+https://polygentic.atlassian.net/browse/BA-278
+
+**File:** `src/app/(dashboard)/audit-log/page.tsx`
+
+Line 44 — add null guard:
+```typescript
+// Before:
+{ key: 'actor', header: 'Actor', render: (row) => row.actor?.email || (row.actorId as string).slice(0, 8) + '...' },
+// After:
+{ key: 'actor', header: 'Actor', render: (row) => row.actor?.email || (row.actorId ? (row.actorId as string).slice(0, 8) + '...' : '-') },
+```
+
+Line 47 — add null guard:
+```typescript
+// Before:
+{ key: 'resourceId', header: 'Resource ID', render: (row) => <span className="font-mono text-xs">{(row.resourceId as string).slice(0, 8)}...</span> },
+// After:
+{ key: 'resourceId', header: 'Resource ID', render: (row) => <span className="font-mono text-xs">{row.resourceId ? (row.resourceId as string).slice(0, 8) + '...' : '-'}</span> },
+```
+
+#### BA-279 [SEV-3] — Children tab shows 'No children registered'
+https://polygentic.atlassian.net/browse/BA-279
+
+Root cause is in the backend (API returns `childCount` but no `children` array). The primary fix is backend-side. But add a frontend fallback:
+
+**File:** `src/app/(dashboard)/users/[id]/page.tsx` around line 143
+
+If `profile?.children` is empty/undefined but childCount > 0, show the count:
+```typescript
+{(profile?.children?.length ?? 0) > 0 ? (
+  <DataTable columns={childColumns} data={(profile?.children ?? []) as (Child & Record<string, unknown>)[]} emptyMessage="No children registered." />
+) : (
+  <p className="text-zinc-500 py-4">
+    {(profile as any)?.childCount > 0
+      ? `${(profile as any).childCount} child(ren) registered (detail view requires backend update)`
+      : 'No children registered.'}
+  </p>
+)}
+```
+
+#### BA-280 [SEV-3] — Incidents caregiver column always shows '-'
+https://polygentic.atlassian.net/browse/BA-280
+
+API returns flat `caregiverName` string but frontend checks nested `caregiverProfile` object.
+
+**File:** `src/app/(dashboard)/incidents/page.tsx` line 20
+
+```typescript
+// Before:
+render: (row) => row.caregiverProfile ? `${row.caregiverProfile.firstName} ${row.caregiverProfile.lastName}` : '-',
+// After:
+render: (row) => (row as any).caregiverName || (row.caregiverProfile ? `${row.caregiverProfile.firstName} ${row.caregiverProfile.lastName}` : '-'),
+```
+
+Also update the `CaregiverIncident` type in `src/types/api.ts` to include `caregiverName?: string`.
+
+#### BA-282 [SEV-2] — Caregiver Reactivate button calls approve endpoint
+https://polygentic.atlassian.net/browse/BA-282
+
+Depends on backend BA-282 (new `/trust/caregivers/:id/reactivate` endpoint).
+
+**File:** `src/hooks/use-caregivers.ts` — add hook:
+```typescript
+export function useReactivateCaregiver(id: string) {
+  return useSwrMutation<void>(`/trust/caregivers/${id}/reactivate`, 'put');
+}
+```
+
+**File:** `src/app/(dashboard)/caregivers/[id]/page.tsx`
+- Import `useReactivateCaregiver`
+- Add: `const { trigger: reactivate, isMutating: reactivating } = useReactivateCaregiver(id);`
+- Add state: `const [reactivateOpen, setReactivateOpen] = useState(false);`
+- Add handler:
+```typescript
+async function handleReactivate() {
+  try {
+    await reactivate(undefined as never);
+    toast({ title: 'Caregiver reactivated' });
+    setReactivateOpen(false);
+    mutate();
+  } catch {
+    toast({ title: 'Error', description: 'Failed to reactivate.', variant: 'destructive' });
+  }
+}
+```
+- Change the Reactivate button (line ~111) from `setApproveOpen(true)` to `setReactivateOpen(true)`
+- Add a separate ConfirmationModal for reactivation wired to `handleReactivate`
+
+#### BA-283 [SEV-2] — Price Override: missing lifecycle guard + field name mismatch
+https://polygentic.atlassian.net/browse/BA-283
+
+**File:** `src/app/(dashboard)/bookings/[id]/page.tsx`
+
+Line 115 — add lifecycle guard:
+```typescript
+{!['completed', 'cancelled'].includes(booking.lifecycle) && (
+  <Button variant="outline" onClick={() => setPriceOpen(true)}>
+    <DollarSign className="mr-2 h-4 w-4" /> Price Override
+  </Button>
+)}
+```
+
+Line 77 — fix field name to match backend schema (`priceOverrideCents` not `amountCents`):
+```typescript
+// Before:
+await priceOverride({ amountCents, reason: overrideReason });
+// After:
+await priceOverride({ priceOverrideCents: amountCents, reason: overrideReason });
+```
+
+**File:** `src/types/api.ts` line ~565 — update type:
+```typescript
+export interface PriceOverridePayload {
+  priceOverrideCents: number;  // was: amountCents
+  reason: string;
+}
+```
+
+#### BA-284 [SEV-3] — Sessions rating filter display bug
+https://polygentic.atlassian.net/browse/BA-284
+
+**File:** `src/app/(dashboard)/sessions/page.tsx` lines 88-95
+
+Fix the SelectValue to render labels instead of raw values:
+```typescript
+<Select value={filters.hasRating ?? 'all'} onValueChange={(v) => updateFilter('hasRating', v === 'all' ? undefined : v)}>
+  <SelectTrigger className="w-32">
+    <SelectValue>
+      {filters.hasRating === 'true' ? 'Has Rating' : filters.hasRating === 'false' ? 'No Rating' : 'All'}
+    </SelectValue>
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All</SelectItem>
+    <SelectItem value="true">Has Rating</SelectItem>
+    <SelectItem value="false">No Rating</SelectItem>
+  </SelectContent>
+</Select>
+```
+
+Backend also needs the `hasRating` query param support (see backend BA-284).
+
+#### BA-286 [SEV-3] — Caregiver invite fails (Content-Type with empty body)
+https://polygentic.atlassian.net/browse/BA-286
+
+**File:** `src/lib/api-client.ts` lines 52-55
+
+Only set Content-Type when there's a body:
+```typescript
+// Before:
+const headers: Record<string, string> = {
+  'Content-Type': 'application/json',
+  ...(options.headers as Record<string, string>),
+};
+// After:
+const headers: Record<string, string> = {
+  ...(options.headers as Record<string, string>),
+};
+if (options.body) {
+  headers['Content-Type'] = 'application/json';
+}
+```
+
+#### BA-288 [SEV-3] — Missing admin UI for Set BG/IDV Status
+https://polygentic.atlassian.net/browse/BA-288
+
+Correction from original ticket: Force Complete and Mark Disputed buttons DO exist in `sessions/[id]/page.tsx` (lines 79-88), gated to `session.status === 'in_progress'`. These are not missing.
+
+**Still needed:** Add BG/IDV status controls on caregiver detail page. Depends on backend BA-288 (new endpoints).
+
+**File:** `src/app/(dashboard)/caregivers/[id]/page.tsx` — in the trust info section, add dropdowns or buttons:
+```typescript
+// BG Check status override
+<Button variant="outline" size="sm" onClick={() => setBgStatusOpen(true)}>
+  Set BG Status
+</Button>
+
+// IDV status override
+<Button variant="outline" size="sm" onClick={() => setIdvStatusOpen(true)}>
+  Set IDV Status
+</Button>
+```
+
+Add corresponding hooks in `src/hooks/use-caregivers.ts`:
+```typescript
+export function useSetBgStatus(id: string) {
+  return useSwrMutation<void, { status: string; reason: string }>(`/trust/caregivers/${id}/bg-status`, 'put');
+}
+export function useSetIdvStatus(id: string) {
+  return useSwrMutation<void, { status: string; reason: string }>(`/trust/caregivers/${id}/idv-status`, 'put');
+}
+```
+
+#### BA-289 [SEV-3] — Credit balance doesn't auto-refresh after issuance
+https://polygentic.atlassian.net/browse/BA-289
+
+**File:** `src/app/(dashboard)/users/[id]/page.tsx`
+
+Lines 48-49 — destructure mutate from credit hooks:
+```typescript
+const { data: creditBalance, mutate: mutateCreditBalance } = useCreditBalance(id);
+const { data: creditHistory, mutate: mutateCreditHistory } = useCreditHistory(id);
+```
+
+Line 170 — call all mutates on close:
+```typescript
+<CreditRefundModal open={creditOpen} onClose={() => { setCreditOpen(false); mutate(); mutateCreditBalance(); mutateCreditHistory(); }} prefillUserId={id} />
+```
+
+---
+
+## Testing Repo Handoff (bijoux-testing)
+
+This fix will be done in this session directly.
+
+### BA-274 — Maestro XCTest driver crashes on scroll
+https://polygentic.atlassian.net/browse/BA-274
+
+BA-275 and BA-276 are caused by this same issue (cascade failures).
+
+Root cause: The `login-submit-button` accessibility ID IS present in the caregiver app. The actual failure is the Maestro XCTest driver crashing on the second `scroll` command.
+
+**File:** `flows/caregiver/login-valid.yaml`
+
+Replace `scroll` commands with keyboard-dismiss taps:
+```yaml
+# Before:
+- scroll
+- tapOn: "Welcome Back"
+- tapOn: "Enter your password"
+- inputText: ${CG_PASSWORD}
+- scroll
+- tapOn:
+    id: "login-submit-button"
+
+# After:
+- tapOn: "Welcome Back"
+- tapOn: "Enter your password"
+- inputText: ${CG_PASSWORD}
+- tapOn: "Welcome Back"
+- tapOn:
+    id: "login-submit-button"
+```
+
+After fixing, re-run to validate BA-275 and BA-276:
+```bash
+./scripts/cross-app-decline-then-accept.sh
+./scripts/cross-app-multi-parent.sh
+```
+
+---
+
+## Original Infrastructure Documentation
+
+(Preserved from initial handoff)
+
+### Specs and Plans
+- **Testing infra spec:** `docs/superpowers/specs/2026-06-10-bijoux-testing-infrastructure-design.md`
+- **Testing infra plan:** `docs/superpowers/plans/2026-06-10-bijoux-testing-infrastructure.md`
+- **Real matching E2E spec:** `docs/specs/2026-06-12-real-matching-e2e.md`
+- **Admin portal E2E spec:** `docs/superpowers/specs/2026-06-15-admin-portal-e2e-integration-design.md`
+
+### Running Tests
+```bash
+# Full suite
+./scripts/run-full-suite.sh
+
+# Layer 4 only (API tests, no Chrome/sims needed)
+./scripts/run-full-suite.sh --layer 4
+
+# Individual L1 scripts
+./scripts/cross-app-real-matching-e2e.sh
+./scripts/cross-app-decline-then-accept.sh
+./scripts/cross-app-cancel-after-match.sh
+./scripts/cross-app-multi-parent.sh
+```
+
+### Test Accounts
+All passwords: `Test1234!`
+- Parent: `parent-sarah@test.bijoux.app`
+- Parent 2: `parent-james@test.bijoux.app`
+- Caregiver: `cg-emma@test.bijoux.app`
+- Caregiver 2: `cg-maria@test.bijoux.app`
+- Admin: `admin@bijoux.app`
+
+### Global State Reset
 ```bash
 cd /Users/polygentic/Documents/dev/bijoux-backend && npm run db:seed && npx tsx prisma/seed-uat.ts
-xcrun simctl terminate "$PARENT_UDID" polygentic.bijouxParentApp 2>/dev/null || true
-xcrun simctl terminate "$CAREGIVER_UDID" polygentic.bijouxCaregiverApp 2>/dev/null || true
 ```
-
-### Critical Rules
-
-- **NEVER use simulate accept** — no `POST /matching/admin/simulate-accept`, no "Simulate Accept" button
-- **Always reseed** backend between E2E script runs
-- **Selectors are best-guess** — Task 14 validates them against real UI; they will need updates
-
----
-
-## Prerequisites Not Yet Done
-
-- [ ] Maestro CLI installed (`curl -Ls "https://get.maestro.dev" | bash`)
-- [ ] Maestro MCP added to Claude Code (`claude mcp add maestro -- maestro mcp`)
-- [ ] iOS simulator runtime matching Xcode 26.5 installed (`xcodebuild -downloadPlatform iOS`)
-- [ ] This repo initialized as a git repo and pushed to GitHub
-
-## Critical Context
-
-- **Both iOS apps have ZERO accessibility identifiers today.** Tasks 7 and 8 add ~88 and ~68 identifiers respectively. This is a blocker for all Maestro flows.
-- **The parent app CLAUDE.md has a two-role workflow** (PLANNER / IMPLEMENTER). When working in bijoux-ios for Task 7, activate IMPLEMENTER.
-- **The caregiver app uses xcodegen** (`project.yml` generates the Xcode project). Build command: `xcodebuild build -scheme bijouxCaregiverApp`.
-- **Backend test accounts** all use password `Test1234!`. Parent: `parent-sarah@test.bijoux.app`. Caregiver: `cg-emma@test.bijoux.app`. Admin: `admin@bijoux.app`.
-- **Admin portal API URL**: `http://localhost:3000/api/v1` (backend) — admin runs on port 3001 by default.
-- **Jira search API changed**: Use `GET /rest/api/3/search/jql?jql=...` not `POST /rest/api/3/search`.
