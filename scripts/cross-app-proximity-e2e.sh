@@ -224,6 +224,12 @@ run_scenario_2() {
   step "SCENARIO 2: DRIFT → admin override → retry"
   setup_caregiver_eligibility
 
+  # Baseline: the latest booking BEFORE this run creates one. The session poll below must
+  # resolve a booking NEWER than this, or the override can land on a stale session from a prior
+  # run (observed: override applied to an old session while the current session passed naturally).
+  local S2_BASELINE_BOOKING
+  S2_BASELINE_BOOKING=$(api_latest_booking_id "$PARENT_TOKEN")
+
   sim_set_location "$CAREGIVER_UDID" "$SIM_LAT_DRIFT_CG"     "$SIM_LNG_DRIFT_CG"
   sim_set_location "$PARENT_UDID"    "$SIM_LAT_DRIFT_PARENT" "$SIM_LNG_DRIFT_PARENT"
 
@@ -259,7 +265,9 @@ run_scenario_2() {
   while [[ $poll_attempt -lt 25 && -z "$S2_SESSION_ID" ]]; do
     sleep 3
     S2_BOOKING_ID=$(api_latest_booking_id "$PARENT_TOKEN")
-    if [[ -n "$S2_BOOKING_ID" ]]; then
+    # Only accept a booking created by THIS run (newer than the baseline), then only accept a
+    # session once it exists for that booking — this prevents overriding a stale prior session.
+    if [[ -n "$S2_BOOKING_ID" && "$S2_BOOKING_ID" != "$S2_BASELINE_BOOKING" ]]; then
       S2_SESSION_ID=$(resolve_session_id "$S2_BOOKING_ID")
     fi
     poll_attempt=$((poll_attempt + 1))
