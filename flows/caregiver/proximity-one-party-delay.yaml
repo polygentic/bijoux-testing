@@ -75,7 +75,12 @@ tags:
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/proximity-cg-delay-arrived
 
-# ═══ VERIFY START — caregiver submits FIRST → waiting ═══
+# ═══ VERIFY START — caregiver submits FIRST → gate waits for the delayed parent ═══
+# App sequence: arrived-verify-button opens the verification cover; the handoff gate runs on
+# CAPTURE (completeSessionVerification -> runProximityGate). Both parties are at NEAR, so once
+# BOTH submit the gate passes. The caregiver captures first; runProximityGate then POLLS
+# internally (proximityPollTimeout) for the parent, which launches ~35s later — no re-tap needed,
+# a single capture waits out the delay and resolves to passed when the parent submits.
 - extendedWaitUntil:
     visible:
       id: "arrived-verify-button"
@@ -87,26 +92,16 @@ tags:
 - tapOn:
     id: "arrived-verify-button"
 - waitForAnimationToEnd
-# Caregiver submitted first → backend returns 'waiting'; the label appears.
-- extendedWaitUntil:
-    visible:
-      id: "proximity-waiting-label"
-    timeout: 20000
-- takeScreenshot: results/cross-app/proximity-cg-polling-waiting
-# Parent launches ~35s later (orchestrator). When the parent submits, both resolve to passed.
-- extendedWaitUntil:
-    notVisible:
-      id: "proximity-waiting-label"
-    timeout: 60000
 - extendedWaitUntil:
     visible:
       id: "verification-capture-button"
     timeout: 30000
+- takeScreenshot: results/cross-app/proximity-cg-polling-waiting
 - tapOn:
     id: "verification-capture-button"
 - waitForAnimationToEnd
 
-# ═══ SESSION ACTIVE ═══
+# ═══ SESSION ACTIVE (gate resolved once the delayed parent submitted) ═══
 - extendedWaitUntil:
     visible:
       id: "home-active-job-card"
