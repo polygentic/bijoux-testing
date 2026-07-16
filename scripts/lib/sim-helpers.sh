@@ -44,6 +44,7 @@ SIM_LNG_DRIFT_PARENT="${PROX_ANCHOR_LNG}"
 SIM_LAT_DRIFT_CG="${PROX_ANCHOR_LAT}"
 SIM_LNG_DRIFT_CG="${PROX_ANCHOR_LNG}"
 
+export PROX_ANCHOR_LAT PROX_ANCHOR_LNG
 export SIM_LAT_NEAR SIM_LNG_NEAR SIM_LAT_FAR SIM_LNG_FAR
 export SIM_LAT_DRIFT_PARENT SIM_LNG_DRIFT_PARENT SIM_LAT_DRIFT_CG SIM_LNG_DRIFT_CG
 
@@ -100,18 +101,38 @@ sim_start_location() {
 # callbacks can lapse between the ~90s `periodic_start_location` restarts, leaving the
 # manager's `.location.timestamp` stale enough for the fallback's 60s window to reject it —
 # so `confirmArrival()`/handoff `currentFix()` throws `noFix` and never POSTs `/arrived`.
-# A 2s `set` loop keeps `.location.timestamp` continuously < ~2s old, so the one-shot's
-# delegate fires (or the cached fallback accepts the fresh cache). This does NOT weaken any
-# assertion — it only keeps the injected GPS fresh, which a real device at the address would
-# have. Anchored EXACTLY at (lat,lng) so proximity distance stays 0 m.
+#
+# CRITICAL (proven 2026-07-16): re-`set`ting the SAME coordinate does NOT deliver a fresh
+# `didUpdateLocations` to the app — CLLocationManager only fires the delegate when the
+# coordinate CHANGES. So a fixed-coord `set` loop leaves `.location.timestamp` frozen at the
+# first delivery; it ages past the fallback's 60s freshness window and `currentFix()` throws
+# `noFix` (the app shows "Turn on location to confirm you've arrived." and never POSTs). This
+# is exactly why UI arrival intermittently failed while a manual warm-app tap sometimes
+# succeeded (it raced the delegate before the timestamp went stale).
+#
+# FIX: JITTER the coordinate by ~0.5 m (toggle the 7th decimal of latitude, ≈0.55 m) every
+# iteration. Each change forces a fresh `didUpdateLocations`, keeping `.location.timestamp`
+# continuously < ~2 s old so the one-shot's cached fallback always accepts it. 0.5 m is orders
+# of magnitude below the 100 m arrival / 50 m handoff thresholds, so proximity distance stays
+# effectively 0 m — this does NOT weaken any assertion, it only keeps the injected GPS *fresh*,
+# which a real device at the address (with normal GPS noise) inherently is.
 sim_tight_refresh() {
   # rounds default 210 × 2s ≈ 7 min — comfortably covers the whole
   # login→online→offer→accept→IOMW→arrival→handoff→session window of one scenario.
   local udid="$1" lat="$2" lng="$3" interval="${4:-2}" rounds="${5:-210}"
+  # Two anchor points ~0.55 m apart (7th-decimal latitude toggle). Alternating between them
+  # each iteration guarantees a coordinate CHANGE → a fresh delegate callback → fresh timestamp.
+  local lat_a lat_b
+  lat_a=$(python3 -c "print(round(${lat} + 0.0000025, 7))")
+  lat_b=$(python3 -c "print(round(${lat} - 0.0000025, 7))")
   (
     local i=0
     while [[ $i -lt $rounds ]]; do
-      xcrun simctl location "$udid" set "${lat},${lng}" 2>/dev/null || true
+      if (( i % 2 == 0 )); then
+        xcrun simctl location "$udid" set "${lat_a},${lng}" 2>/dev/null || true
+      else
+        xcrun simctl location "$udid" set "${lat_b},${lng}" 2>/dev/null || true
+      fi
       sleep "$interval"
       i=$((i + 1))
     done

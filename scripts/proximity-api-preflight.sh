@@ -89,11 +89,17 @@ release_caregiver() {
 setup_matched_offer() {
   local label="$1"
   release_caregiver
-  # Create a booking with lat/lng = booking address (required for arrival enforcement).
+  # Create a booking whose stored lat/lng = the SAME proximity anchor the NEAR/FAR/DRIFT
+  # sim coords are derived from ($PROX_ANCHOR_LAT/LNG, i.e. BOOKING_LAT/LNG). The backend
+  # arrival/handoff checks compare the caregiver's/parent's coord against the BOOKING's
+  # coord, so the booking and the NEAR arrival coord MUST share one anchor or every arrival
+  # is ~392 m off (the TEST_LAT/LNG-vs-BOOKING_LAT/LNG gap) and PASS cases fail. This script
+  # bypasses the app's client-geocode by sending lat/lng directly, so we set them explicitly
+  # to the anchor here (the app path reaches the same anchor via geocoding "100 Congress Ave").
   local booking_resp
   booking_resp=$(curl -s -X POST "$BACKEND_URL/bookings" \
     -H "Content-Type: application/json" -H "Authorization: Bearer $PARENT_TOKEN" \
-    -d "{\"type\":\"request_now\",\"address\":\"$TEST_ADDRESS\",\"latitude\":$TEST_LAT,\"longitude\":$TEST_LNG,\"durationMinutes\":180,\"numberOfChildren\":1}")
+    -d "{\"type\":\"request_now\",\"address\":\"$TEST_ADDRESS\",\"latitude\":$PROX_ANCHOR_LAT,\"longitude\":$PROX_ANCHOR_LNG,\"durationMinutes\":180,\"numberOfChildren\":1}")
   BOOKING_OUT=$(printf '%s' "$booking_resp" | python3 -c "
 import sys,json
 try:
