@@ -176,6 +176,189 @@ sim_clear_location() {
   xcrun simctl location "$udid" clear
 }
 
+# ─── REAL CoreLocation authorization control (locationd-backed) ────────────────
+#
+# WHY THIS EXISTS (2026-07-16, evidence-based root-cause fix):
+# `simctl privacy revoke/reset location` does NOT flip CLLocationManager.authorizationStatus on
+# this simulator (iOS 26.x) — CoreLocation authorization is owned by the `locationd` daemon's
+# `clients.plist`, NOT by the TCC.db that `simctl privacy` writes. (Verified: after a
+# `simctl privacy revoke location`, the caregiver's locationd client stays Authorization=2 and NO
+# denial takes effect — the app's `currentFix()` still succeeds.) So to exercise the REAL
+# permission-denied branch (`CoreLocationService.currentFix()` throws `LocationFixError.permissionDenied`
+# → the app shows "Turn on location to confirm you've arrived." and never POSTs /arrived), we edit
+# locationd's own authorization record directly.
+#
+# locationd `Authorization` integer semantics (kCLClientAuthorization):
+#   0 = not-determined   1 = DENIED   2 = AUTHORIZED (when-in-use / always)
+# Setting it to 1 makes `CLLocationManager.authorizationStatus` == .denied → the guard at
+# CoreLocationService.currentFix() (status must be .authorizedWhenInUse/.authorizedAlways) fails and
+# it throws .permissionDenied. Setting it back to 2 (or 0) restores/prompts.
+#
+# MECHANICS: locationd rewrites clients.plist on shutdown, so we MUST stop locationd FIRST, edit the
+# plist while it is down, and let launchd auto-relaunch it (it re-reads the edited plist on start and
+# pushes the new authorization to clients). The app observes the change on its next cold launch
+# (authorizationStatus is read fresh from locationd) — which is exactly the S4 relaunch path.
+#
+# NOTE: the injected value is verified after the edit (sim_coreloc_auth), so the harness FAILS LOUD
+# if a future OS changes the plist format rather than silently falling back to a distance fail.
+
+# _locationd_clients_plist <UDID>  → prints the path to the sim's locationd clients.plist
+_locationd_clients_plist() {
+  local udid="$1"
+  echo "$HOME/Library/Developer/CoreSimulator/Devices/$udid/data/Library/Caches/locationd/clients.plist"
+}
+
+# _locationd_client_key <UDID> <bundleId>  → prints the locationd client KEY for the bundle.
+# locationd registers clients under a key like `ipolygentic.bijouxCaregiverApp:` (leading tag +
+# trailing colon), NOT the bare bundle id — so we DISCOVER it from the plist rather than hardcode it
+# (survives reinstalls / format changes). Matches the <key>…<bundleId>…</key> entry.
+_locationd_client_key() {
+  local udid="$1" bundle_id="$2"
+  local plist; plist="$(_locationd_clients_plist "$udid")"
+  [[ -f "$plist" ]] || return 1
+  # Escape regex metacharacters in the bundle id (dots) for a literal match.
+  local esc; esc="$(printf '%s' "$bundle_id" | sed 's/[.[\*^$]/\\&/g')"
+  plutil -convert xml1 -o - "$plist" 2>/dev/null \
+    | grep -oE "<key>[^<]*${esc}[^<]*</key>" \
+    | sed -e 's/^<key>//' -e 's/<\/key>$//' \
+    | head -1
+}
+
+# sim_coreloc_auth <UDID> <bundleId>  → prints the current locationd Authorization integer
+# (0=not-determined, 1=denied, 2=authorized), or empty if the client isn't registered yet.
+sim_coreloc_auth() {
+  local udid="$1" bundle_id="$2"
+  local plist key; plist="$(_locationd_clients_plist "$udid")"
+  key="$(_locationd_client_key "$udid" "$bundle_id")" || return 0
+  [[ -z "$key" ]] && return 0
+  # PlistBuddy uses ':' as a path separator; the key itself ENDS in a colon, so escape it as '\:'.
+  local escaped_key="${key//:/\\:}"
+  /usr/libexec/PlistBuddy -c "Print :${escaped_key}:Authorization" "$plist" 2>/dev/null
+}
+
+# _sim_set_coreloc_auth <UDID> <bundleId> <value>  (internal)
+# Stops locationd, sets the client's Authorization to <value>, lets launchd relaunch locationd.
+# Returns 0 on success; returns 1 if the client/plist is missing.
+#
+# When DENYING (value=1) we ALSO (a) revoke the TCC grant and (b) clear AuthorizationUpgradeAvailable
+# so the app's on-en-route requestWhenInUseAuthorization() has nothing to upgrade FROM — on this
+# simulator a running app can otherwise silently re-authorize itself back to 2 (a simulator artifact;
+# a real denied-user device would stay denied). The periodic re-deny loop (sim_hold_deny_location_coreloc)
+# is the final backstop against that spurious re-grant.
+_sim_set_coreloc_auth() {
+  local udid="$1" bundle_id="$2" value="$3"
+  local plist key; plist="$(_locationd_clients_plist "$udid")"
+  [[ -f "$plist" ]] || { echo "  (coreloc) no locationd clients.plist for $udid" >&2; return 1; }
+  key="$(_locationd_client_key "$udid" "$bundle_id")"
+  [[ -z "$key" ]] && { echo "  (coreloc) $bundle_id not yet registered with locationd on $udid" >&2; return 1; }
+  local escaped_key="${key//:/\\:}"
+  # For a denial, also revoke the TCC grant first so locationd can't reconcile back to authorized.
+  if [[ "$value" == "1" ]]; then
+    xcrun simctl privacy "$udid" revoke location "$bundle_id" >/dev/null 2>&1 || true
+  fi
+  # Stop locationd FIRST so it can't overwrite our edit on exit; launchd auto-relaunches it.
+  xcrun simctl spawn "$udid" launchctl kill KILL system/com.apple.locationd >/dev/null 2>&1 || \
+    xcrun simctl spawn "$udid" launchctl stop com.apple.locationd >/dev/null 2>&1 || true
+  sleep 2
+  /usr/libexec/PlistBuddy -c "Set :${escaped_key}:Authorization ${value}" "$plist" >/dev/null 2>&1
+  if [[ "$value" == "1" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :${escaped_key}:AuthorizationUpgradeAvailable false" "$plist" >/dev/null 2>&1 || true
+  fi
+  # Let launchd relaunch locationd and re-read the edited plist.
+  sleep 3
+}
+
+# _sim_redeny_fast <UDID> <bundleId>  (internal, used by the hold loop)
+# A lighter re-deny for the tight loop: revoke TCC + restart locationd + set Authorization=1. Same
+# effect as _sim_set_coreloc_auth 1 but without the extra verify read (the loop caller verifies).
+_sim_redeny_fast() {
+  local udid="$1" bundle_id="$2"
+  local plist key; plist="$(_locationd_clients_plist "$udid")"
+  key="$(_locationd_client_key "$udid" "$bundle_id")"
+  [[ -z "$key" ]] && return 0
+  local escaped_key="${key//:/\\:}"
+  xcrun simctl privacy "$udid" revoke location "$bundle_id" >/dev/null 2>&1 || true
+  xcrun simctl spawn "$udid" launchctl kill KILL system/com.apple.locationd >/dev/null 2>&1 || true
+  sleep 1
+  /usr/libexec/PlistBuddy -c "Set :${escaped_key}:Authorization 1" "$plist" >/dev/null 2>&1
+  /usr/libexec/PlistBuddy -c "Set :${escaped_key}:AuthorizationUpgradeAvailable false" "$plist" >/dev/null 2>&1 || true
+}
+
+# PIDs of the background re-deny loops so they can be stopped.
+CORELOC_DENY_PIDS=()
+
+# sim_hold_deny_location_coreloc <UDID> <bundleId> [rounds] [interval_s]
+# Continuously RE-ASSERTS CoreLocation denial in the background (default ~30 rounds × 4 s ≈ 2 min).
+# The caregiver app, on the en-route screen, calls requestWhenInUseAuthorization() which on this
+# simulator can spuriously re-authorize the app (Authorization flips 1→2). This loop keeps flipping
+# it back to 1 so the app is DENIED at the arrival tap — the state a real denied-user device is in.
+# Runs detached; caller stops it via kill_coreloc_deny before the grant-back.
+sim_hold_deny_location_coreloc() {
+  local udid="$1" bundle_id="$2" rounds="${3:-30}" interval="${4:-4}"
+  (
+    local i=0
+    while [[ $i -lt $rounds ]]; do
+      # Only re-deny if the app has flipped it back to authorized (avoids needless locationd churn).
+      local cur; cur="$(sim_coreloc_auth "$udid" "$bundle_id")"
+      if [[ "$cur" != "1" ]]; then
+        _sim_redeny_fast "$udid" "$bundle_id"
+      fi
+      sleep "$interval"
+      i=$((i + 1))
+    done
+  ) &
+  CORELOC_DENY_PIDS+=("$!")
+}
+
+# kill_coreloc_deny  — stop all background re-deny loops started this process.
+kill_coreloc_deny() {
+  local pid
+  for pid in "${CORELOC_DENY_PIDS[@]}"; do
+    [[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true
+  done
+  CORELOC_DENY_PIDS=()
+}
+
+# sim_deny_location_coreloc <UDID> <bundleId>
+# GENUINELY denies CoreLocation for the app (authorizationStatus → .denied). See block comment above.
+# The app must be relaunched (cold) to observe .denied — callers relaunch via the part-B Maestro flow.
+sim_deny_location_coreloc() {
+  local udid="$1" bundle_id="$2"
+  _sim_set_coreloc_auth "$udid" "$bundle_id" 1 || return 1
+  local got; got="$(sim_coreloc_auth "$udid" "$bundle_id")"
+  if [[ "$got" == "1" ]]; then
+    echo "  (coreloc) DENIED CoreLocation for $bundle_id on $udid (locationd Authorization=1)"
+    return 0
+  fi
+  echo "  (coreloc) FAILED to deny: locationd Authorization is '${got:-<missing>}', expected 1" >&2
+  return 1
+}
+
+# sim_grant_location_coreloc <UDID> <bundleId>
+# Restores CoreLocation authorization (authorizationStatus → .authorizedWhenInUse). Pairs with
+# sim_deny_location_coreloc for the S4 grant-back-and-retry step. Also re-runs `simctl privacy grant`
+# (harmless; keeps TCC coherent for any other consumer).
+sim_grant_location_coreloc() {
+  local udid="$1" bundle_id="$2"
+  # Re-enable upgrade + grant TCC first so the restore is clean (deny had disabled both).
+  local plist key; plist="$(_locationd_clients_plist "$udid")"
+  key="$(_locationd_client_key "$udid" "$bundle_id")"
+  xcrun simctl privacy "$udid" grant location "$bundle_id" >/dev/null 2>&1 || true
+  _sim_set_coreloc_auth "$udid" "$bundle_id" 2 || return 1
+  if [[ -n "$key" ]]; then
+    local escaped_key="${key//:/\\:}"
+    /usr/libexec/PlistBuddy -c "Set :${escaped_key}:AuthorizationUpgradeAvailable false" "$plist" >/dev/null 2>&1 || true
+  fi
+  xcrun simctl privacy "$udid" grant location "$bundle_id" >/dev/null 2>&1 || true
+  local got; got="$(sim_coreloc_auth "$udid" "$bundle_id")"
+  if [[ "$got" == "2" ]]; then
+    echo "  (coreloc) RESTORED CoreLocation for $bundle_id on $udid (locationd Authorization=2)"
+    return 0
+  fi
+  echo "  (coreloc) FAILED to restore: locationd Authorization is '${got:-<missing>}', expected 2" >&2
+  return 1
+}
+
 # proximity_drift_distance <sessionId> <phase>
 # Reads BOTH parties' submitted proximity GPS from Redis (the same keys the backend's
 # submitProximityCheck writes: `proximity:<sessionId>:<phase>:<role>`, 5-min TTL) and prints

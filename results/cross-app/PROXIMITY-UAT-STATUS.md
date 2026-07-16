@@ -14,9 +14,9 @@ Caregiver app: `main` @ `4a7ee6d`. Parent app: `main` @ `68c118c`.
 |---|---|---|
 | Backend contract preflight (`proximity-api-preflight.sh`) | **PASS** (33/33) | flag ON, anchor-consistency fix |
 | Scenario 1 — happy path | **PASS ✓** | `proximity-e2e-s1-PASS.log` (regression re-run also green); DB: arrived+proximity-passed+session completed |
-| Scenario 2 — drift → admin override → retry | **PASS ✓** | `proximity-e2e-s2-PASS.log`; observed drift 89 m; DB session start_proximity_passed=t, start_override=t, end_pass=t, completed |
+| Scenario 2 — drift → admin override → retry | **PASS ✓** | `proximity-e2e-s2-override-PASS.log`; observed drift 89 m before override; DB session start_proximity_passed=t, start_override=t, completed |
 | Scenario 3 — one-party delay | **PASS ✓** | `proximity-e2e-s3-PASS.log`; DB: start_pass+end_pass+completed |
-| Scenario 4 — location-denial at arrival | **PASS ✓** | `proximity-e2e-s4-PASS.log`; arrived_at NULL during inline error (no POST), then set after grant+retry |
+| Scenario 4 — permission-denial at arrival | **PASS ✓** | `proximity-e2e-s4-real-denial-PASS.log`; REAL CoreLocation denial (locationd Authorization=1, asserted); "Turn on location…" permission message (NOT distance); arrived_at NULL (no POST), set after grant+retry |
 
 ## How Scenarios 2 & 4 were closed (2026-07-16)
 
@@ -41,17 +41,28 @@ a stale SEED session.
   gate → verify → active → complete, where the long in-session blind retry loop consistently stalled.
 
 **Scenario 4 (location-denial at arrival):** split into part-A (login→online→accept→IOMW→en-route,
-location granted) → orchestrator moves the caregiver's location so the arrival inline-fails, records
-`arrived_at` NULL → part-B relaunch (re-login on the "Get Started" fallback) → tap I've Arrived →
-inline `arrival-proximity-message` (no POST, no crash) → grant/move NEAR → retry → arrival succeeds.
-**SIMULATOR LIMITATION (documented):** `simctl privacy revoke/reset location` does NOT deny
-CoreLocation on this simulator (iOS 26.5) — location auth lives in locationd, not TCC.db; the app
-stayed `Authorization=2` and no permission dialog ever appeared, so the arrival wrongly succeeded.
-`simctl location clear` likewise did not remove the fix. The permission-denial *trigger* is therefore
-not reproducible via simctl here; the harness instead moves the caregiver FAR (~311 m, > the 100 m
-arrival threshold) so the SAME inline arrival-proximity-message surface is exercised (same
-accessibility id, same no-POST/`arrived_at` NULL, same no-crash, same recover-on-retry). The `reset`
-is still attempted (correct on real devices).
+location granted) → orchestrator TERMINATES the app and GENUINELY DENIES CoreLocation (locationd
+`Authorization=1`), sim location kept NEAR the address, records `arrived_at` NULL → part-B relaunch
+(re-login on the "Get Started" fallback) → tap I've Arrived → `currentFix()` throws `.permissionDenied`
+→ inline `arrival-proximity-message` = "Turn on location to confirm you've arrived." (the PERMISSION
+message, NOT the distance message; no POST, no crash) → grant CoreLocation back → retry → arrival
+succeeds at NEAR (proving the denial, not distance, was the sole cause).
+
+**REAL DENIAL TRIGGER (2026-07-16, root-cause fix — replaces the earlier distance-fail substitution):**
+`simctl privacy revoke location` DOES write `Authorization=1` to locationd, but a RUNNING caregiver
+app re-authorizes itself back to `2` when the en-route screen calls `requestWhenInUseAuthorization()`
+(a simulator artifact; a real denied-user device stays denied). The harness therefore denies
+CoreLocation AT THE SOURCE — `sim_deny_location_coreloc` stops `locationd`, sets the app's client
+`Authorization=1` (+ revokes TCC, clears `AuthorizationUpgradeAvailable`), relaunches `locationd` —
+and holds it with a background re-deny loop (`sim_hold_deny_location_coreloc`) that flips any spurious
+re-grant back to denied through the arrival tap. The orchestrator ASSERTS the denial was genuine
+(`locationd Authorization == 1`) at the moment `arrived_at` is confirmed NULL, so the test FAILS LOUD
+if location was ever (wrongly) re-authorized. Verified GREEN: the denied-arrival screenshot shows the
+"Turn on location…" permission message with NO location arrow in the status bar (see
+`proximity-cg-permission-denied.png`), then the "You've Arrived" screen after grant+retry (see
+`proximity-cg-permission-retry-arrived.png`). Helpers: `scripts/lib/sim-helpers.sh`
+(`sim_deny_location_coreloc`, `sim_hold_deny_location_coreloc`, `sim_grant_location_coreloc`,
+`sim_coreloc_auth`).
 
 ## What was fixed (root cause, not workarounds)
 
@@ -110,37 +121,40 @@ later, the gate resolves to passed, and the session completes end-to-end
 (`start_proximity_passed=t`, `end_proximity_passed=t`, booking `completed`).
 Log: `proximity-e2e-s3-PASS.log`.
 
-## Scenario 2 — drift → admin override → retry — RED (residual harness timing, NOT the app fix)
-The override mechanism itself works: multiple runs reach `start_proximity_override_at` set,
-`start_proximity_passed=t`, and the session progresses to `in_progress`/`completed` after the override.
-The drift flows were correctly restructured (both apps show a "move closer / Retry" state at 89 m and
-must re-tap Retry after the override — a `repeat` loop drives this). Two residual harness-timing issues
-keep it from a clean green:
-- **DRIFT not effective at capture**: in several runs the current run's session passed proximity
-  NATURALLY (`start_proximity_passed=t`, `start_proximity_override_at` NULL), i.e. the two parties'
-  submitted GPS were < 50 m apart even though the parent sim was anchored at DRIFT (89 m). The parent
-  app does one-shot fixes only (no continuous `startUpdatingLocation`), so its submitted position did
-  not reflect the DRIFT anchor at capture time. This needs a determinism fix in how the parent sim's
-  DRIFT position is guaranteed fresh in the parent app's one-shot at the capture moment.
-- **Stale-session resolution race** (mitigated, not fully closed): the admin override could target a
-  prior run's session. Added a baseline-booking guard so only a booking newer than the pre-run baseline
-  is resolved; this reduced but did not eliminate the mismatch when accumulated pending bookings exist.
-This is NOT the app-side cached-fallback fix (S1/S3 prove that works end-to-end); it is sim-GPS
-freshness + test-state determinism specific to the two-party DRIFT handoff.
+## Scenario 2 — drift → admin override → retry — PASS ✓ (2026-07-16)
+`bash scripts/cross-app-proximity-e2e.sh --scenario=2` → `OVERALL: PASS ✓` (0 failures). The override
+is GATED on an OBSERVED drift fail: the caregiver UI shows the backend's 89 m distance fail and the
+parent shows its blocked-handoff state (both screenshots asserted present) BEFORE the admin
+`proximity-override` fires; the apps then re-tap Retry (the `repeat` loop) → session goes active →
+booking `completed`. The two prior residual timing issues are closed:
+- **DRIFT effective at capture**: a background loop keeps a fresh parent-DRIFT proximity submission
+  alive server-side, so whenever the caregiver's app submits, a 89 m parent key is already present and
+  the caregiver reliably observes the >50 m handoff fail (rather than the session passing naturally
+  before the parent's one-shot resolved at DRIFT).
+- **Stale-session resolution**: a per-scenario clean DB reset (`reset_test_db_clean`) plus a
+  baseline-booking + seed-id guard means only THIS run's fresh booking/session is resolvable, so the
+  override cannot target a prior run's session.
 
-## Scenario 4 — permission denial — RED (scenario-design timing, NOT the app fix)
-The caregiver app requires location to go online + match, so it cannot be denied for the whole flow;
-the denial must be injected specifically at the arrival moment. In the current run the app had location
-through arrival and passed (no inline "Turn on location" error appeared), so the denial→inline→
-grant→retry chain never exercised. Needs the orchestrator to `simctl privacy revoke location` for the
-caregiver right before the arrival tap (after online/match), then grant for the retry — a timed
-revoke/grant around the arrival step rather than a withheld pre-grant.
+## Scenario 4 — permission denial — GREEN (2026-07-16, real denial trigger)
+Now closed with a GENUINE CoreLocation denial (not the earlier distance-fail substitution). The
+orchestrator terminates the app after part-A reaches en-route, denies CoreLocation at the locationd
+layer (`sim_deny_location_coreloc`) with the sim kept NEAR the address, and holds the denial through
+the arrival tap (`sim_hold_deny_location_coreloc` counteracts the app's spurious on-en-route
+re-authorization). Part-B relaunches → tap I've Arrived → `currentFix()` throws `.permissionDenied` →
+the inline "Turn on location to confirm you've arrived." PERMISSION message (asserted present; the
+distance message asserted ABSENT), no `/arrived` POST (`arrived_at` NULL, asserted), no crash. The
+orchestrator asserts `locationd Authorization == 1` at that moment (fails loud if re-authorized),
+then grants CoreLocation back → retry → arrival succeeds at NEAR. Full run: 0 failures. Artifacts:
+`proximity-cg-permission-denied.png` (permission message, no location arrow),
+`proximity-cg-permission-retry-arrived.png` (You've Arrived after grant+retry).
 
 ## Reproduce
 ```
-# backend (main) up with the flag; then:
+# backend (main) up with PROXIMITY_CHECK_ENABLED=true; then:
 cd bijoux-testing && source config/environment.sh
 bash scripts/proximity-api-preflight.sh                # contract: PASS (33/33)
 bash scripts/cross-app-proximity-e2e.sh --scenario=1   # UI: PASS
+bash scripts/cross-app-proximity-e2e.sh --scenario=2   # UI: PASS (drift → override → retry)
 bash scripts/cross-app-proximity-e2e.sh --scenario=3   # UI: PASS
+bash scripts/cross-app-proximity-e2e.sh --scenario=4   # UI: PASS (real permission denial → grant → retry)
 ```
