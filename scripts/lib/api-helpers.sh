@@ -45,16 +45,26 @@ else:
 }
 
 # Get session ID from booking. Args: token, booking_id
+# NOTE: the GET /sessions?bookingId= filter is IGNORED server-side — it returns ALL of the
+# caller's sessions. So we MUST match the requested booking_id CLIENT-SIDE; taking sessions[0]
+# blindly returns whichever session sorts first (often a SEED fixture), which caused Scenario 2's
+# admin override to land on a stale seed session instead of the run's fresh session.
 api_session_id() {
   local token="$1" booking_id="$2"
   curl -s -H "Authorization: Bearer ${token}" \
     "${BACKEND_URL}/sessions?bookingId=${booking_id}" 2>/dev/null \
     | python3 -c "
 import sys, json
+booking_id = '${booking_id}'
 data = json.load(sys.stdin)
 sessions = data.get('sessions', data.get('data', []))
-if isinstance(sessions, list) and len(sessions) > 0:
-    print(sessions[0].get('id', ''))
+if isinstance(sessions, list):
+    for s in sessions:
+        if s.get('bookingId') == booking_id:
+            print(s.get('id', ''))
+            break
+    else:
+        print('')
 else:
     print('')" 2>/dev/null
 }
@@ -253,4 +263,21 @@ api_reseed() {
   echo "  Reseeding backend..."
   (cd "$BIJOUX_BACKEND_DIR" && npm run db:seed 2>/dev/null && npx tsx prisma/seed-uat.ts 2>/dev/null) || true
   echo "  Backend reseeded"
+}
+
+# Print the accepted offer's arrived_at for a booking, or empty if NULL/none. Args: booking_id
+# Used by Scenario 4 to prove NO /arrived POST fired while location was denied (arrived_at NULL),
+# then that arrival succeeded after the grant (arrived_at set). Reads the DB directly (the app's
+# confirmArrival POSTs to /matching/offers/:id/arrived which stamps match_offers.arrived_at).
+api_offer_arrived_at() {
+  local booking_id="$1"
+  docker exec bijoux-postgres psql -U bijoux -d bijoux_dev -t -c "
+    SELECT COALESCE(o.arrived_at::text, '')
+    FROM match_offers o
+    JOIN match_requests r ON r.id = o.match_request_id
+    WHERE r.booking_id = '${booking_id}'
+      AND o.status = 'accepted'
+    ORDER BY o.arrived_at DESC NULLS LAST
+    LIMIT 1;
+  " 2>/dev/null | tr -d ' \n'
 }

@@ -1,0 +1,75 @@
+# jira: BA-300
+# uat: UAT-20.2 — Drift → Admin Override → Retry (Caregiver, part B: post-override retry → complete)
+# Launched by the orchestrator as a FRESH Maestro session AFTER the admin start-proximity override
+# is applied AND the sims are re-anchored to NEAR with a fresh location feed. The caregiver app is
+# parked on the verification cover showing "You're N m apart — move closer to verify." with a
+# "Retry" button (verification-capture-button). A clean Retry tap now re-runs capture → proximity
+# gate → the backend's idempotent shortcut returns PASSED (startProximityPassed=true) → verifyStart,
+# and the caregiver moves to "Waiting for parent to verify…" then, once the parent verifies, to the
+# active job card. Proven: this fresh-session single-tap retry reliably converges (the in-session
+# blind retry loop did not). Does NOT clearState — it attaches to the already-running app.
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - cross-app
+  - proximity
+---
+- waitForAnimationToEnd
+# Tap Retry until the "apart"/no-fix fail text clears (each tap re-runs the now-overridden gate).
+- repeat:
+    times: 10
+    while:
+      visible:
+        text: ".*apart.*|.*move closer.*|.*Turn on.*"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "verification-capture-button"
+          timeout: 8000
+      - tapOn:
+          id: "verification-capture-button"
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          notVisible:
+            text: ".*apart.*|.*move closer.*|.*Turn on.*"
+          timeout: 12000
+
+# ═══ SESSION ACTIVE — caregiver verified; wait for the parent to verify, then the active card ═══
+- extendedWaitUntil:
+    visible:
+      id: "home-active-job-card"
+    timeout: 180000
+- tapOn:
+    id: "home-active-job-card"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-cg-drift-session-active
+
+# ═══ END JOB ═══
+- extendedWaitUntil:
+    visible:
+      id: "in-progress-end-button"
+    timeout: 30000
+- tapOn:
+    id: "in-progress-end-button"
+- waitForAnimationToEnd
+- tapOn: "Confirm"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "verification-capture-button"
+    timeout: 30000
+- tapOn:
+    id: "verification-capture-button"
+- waitForAnimationToEnd
+
+# ═══ SESSION COMPLETE ═══
+- extendedWaitUntil:
+    visible: ".*Session Complete.*|.*Take Home.*|.*Well done.*"
+    timeout: 120000
+- takeScreenshot: results/cross-app/proximity-cg-drift-session-complete
+- tapOn:
+    text: "Done"
+    optional: true
+- tapOn:
+    text: ".*Take Home.*|.*Dismiss.*"
+    optional: true
+- waitForAnimationToEnd

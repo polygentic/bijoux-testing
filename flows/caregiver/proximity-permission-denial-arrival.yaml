@@ -1,0 +1,138 @@
+# jira: BA-302
+# uat: UAT-20.4 — Permission Denial at Arrival (Caregiver, part B: denied arrival + retry)
+# Scenario part B: the app was TERMINATED by the orchestrator's `simctl privacy revoke location`
+#   right before arrival. This flow RELAUNCHES it WITHOUT clearing state (login + accepted offer +
+#   IOMW persist), so the caregiver app's en-route recovery restores the "I've Arrived" screen.
+#   With location now DENIED, tapping "I've Arrived" must show the INLINE location message
+#   (arrival-proximity-message: "Turn on location to confirm you've arrived.") and NOT POST
+#   /arrived (backend arrived_at stays NULL) and NOT fall into a full-screen error. The
+#   orchestrator then verifies arrived_at is still NULL, GRANTS location back, and the flow taps
+#   "I've Arrived" again — this time currentFix() resolves and arrival succeeds.
+# Pre: orchestrator has REVOKED location TCC (app terminated) and set sim location NEAR.
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - cross-app
+  - proximity
+---
+# ═══ RELAUNCH (preserve login + offer state; en-route recovery restores the arrival screen) ═══
+- launchApp:
+    clearState: false
+    clearKeychain: false
+- waitForAnimationToEnd
+# Location is DENIED — the app may surface an OS re-prompt on appear; deny it to keep location off.
+- tapOn:
+    text: "Don't Allow"
+    optional: true
+- waitForAnimationToEnd
+# RE-LOGIN IF NEEDED: the revoke-terminate can drop the in-memory session so the app relaunches to
+# "Get Started" (the token isn't restored). Re-authenticate; after login the app's en-route recovery
+# (offer.iomwAt != nil, persisted server-side) restores dashboardState = .enRoute → "I've Arrived".
+- runFlow:
+    when:
+      visible: "Get Started"
+    commands:
+      - tapOn: "Get Started"
+      - waitForAnimationToEnd
+      - tapOn: "you@example.com"
+      - inputText: "cg-maria@test.bijoux.app"
+      - tapOn: "Welcome Back"
+      - tapOn: "Show password"
+      - extendedWaitUntil:
+          visible:
+            id: "login-password-field"
+          timeout: 5000
+      - tapOn:
+          id: "login-password-field"
+      - inputText: "Test1234!"
+      - tapOn: "Hide password"
+      - tapOn:
+          id: "login-submit-button"
+      - waitForAnimationToEnd
+      - tapOn:
+          text: "Not Now"
+          optional: true
+      - waitForAnimationToEnd
+# DENY any location permission dialog the app raises after login / on the en-route screen — a
+# `revoke` can leave the status "not determined" so the app re-prompts; we must tap "Don't Allow"
+# to keep location DENIED for the arrival tap (else it re-grants and the arrival wrongly succeeds).
+- tapOn:
+    text: "Don't Allow"
+    optional: true
+- waitForAnimationToEnd
+# En-route recovery (offer.iomwAt != nil) restores dashboardState = .enRoute → "I've Arrived".
+- extendedWaitUntil:
+    visible: "I've Arrived"
+    timeout: 60000
+# Re-deny in case the dialog surfaced only once the en-route screen requested location on-appear.
+- tapOn:
+    text: "Don't Allow"
+    optional: true
+- waitForAnimationToEnd
+- swipe:
+    direction: UP
+    duration: 500
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-cg-s4-relaunched-enroute
+
+# ═══ ARRIVAL WITH LOCATION DENIED — expect INLINE message, no POST, no crash ═══
+# Deny any last permission dialog so authorizationStatus stays denied/notDetermined at the tap.
+- tapOn:
+    text: "Don't Allow"
+    optional: true
+- waitForAnimationToEnd
+- tapOn: "I've Arrived"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Don't Allow"
+    optional: true
+- waitForAnimationToEnd
+# The app's confirmArrival() catches the location error (a no-fix from a denied/absent location, or
+# — on this simulator, where simctl cannot deny CoreLocation — a proximity 400 from being FAR from
+# the address) and sets the inline arrival-proximity-message, staying en route: it does NOT POST
+# /arrived and does NOT switch to a full-screen error. Assert the INLINE message (by id) + that it's
+# a location/proximity message (either "Turn on location…" OR "N m from the address — move closer…")
+# and NOT a full-screen crash.
+- extendedWaitUntil:
+    visible:
+      id: "arrival-proximity-message"
+    timeout: 20000
+- takeScreenshot: results/cross-app/proximity-cg-permission-denied
+- assertVisible:
+    text: ".*Turn on location.*|.*from the address.*|.*move closer.*"
+- assertNotVisible:
+    text: "Something went wrong"
+- assertNotVisible:
+    text: ".*Failed to confirm arrival.*"
+
+# ═══ RETRY — orchestrator confirms arrived_at NULL, then grants location; we re-tap ═══
+# The orchestrator watches for proximity-cg-permission-denied.png, asserts arrived_at is still
+# NULL (no POST happened), grants location back, and keeps the sim fix fresh. We wait a beat for
+# the grant to land, then retry "I've Arrived" — currentFix() now resolves and arrival succeeds.
+- extendedWaitUntil:
+    visible: "I've Arrived"
+    timeout: 60000
+- swipe:
+    direction: UP
+    duration: 500
+- waitForAnimationToEnd
+# Retry loop: tap "I've Arrived" until the app leaves en-route (arrived-verify-button appears),
+# giving the orchestrator's grant time to take effect on the app's next currentFix().
+- repeat:
+    times: 12
+    while:
+      notVisible:
+        id: "arrived-verify-button"
+    commands:
+      - tapOn:
+          text: "I've Arrived"
+          optional: true
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          visible:
+            id: "arrived-verify-button"
+          timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: "arrived-verify-button"
+    timeout: 30000
+- takeScreenshot: results/cross-app/proximity-cg-permission-retry-arrived

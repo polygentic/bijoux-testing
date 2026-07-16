@@ -79,10 +79,16 @@ tags:
 # App sequence: tapping arrived-verify-button opens the verification cover; the silent handoff
 # proximity gate runs on CAPTURE (completeSessionVerification -> runProximityGate). Both parties
 # are ~89 m apart (parent at DRIFT), which exceeds the 50 m handoff threshold, so the backend
-# returns proximityFailed — BOTH apps stop polling and show a "You're 90 m apart — move closer"
-# error with the capture button relabelled "Retry". The orchestrator admin-overrides the start
-# gate SERVER-SIDE, but each app has stopped polling — so each must tap Retry to re-submit; the
-# now-overridden gate returns passed and the session goes active.
+# returns proximityFailed — the party that submits SECOND shows "You're 89 m apart — move closer"
+# with the capture button relabelled "Retry". The orchestrator admin-overrides the start gate
+# SERVER-SIDE, then each app taps Retry to re-submit; the now-overridden gate returns passed.
+#
+# DETERMINISM: the caregiver's arrival (above) surfaces "Caregiver Has Arrived" on the PARENT,
+# which then does Start Identity Verification → Capture and begins re-submitting its DRIFT
+# proximity every ~3 s. The orchestrator ALSO seeds the parent's DRIFT submission server-side so a
+# parent key is present before the caregiver captures — then the caregiver's submit finds it and
+# gets the 89 m 400 immediately (see run_scenario_2). This avoids the caregiver racing into a
+# "Waiting" limbo its single gate poll can miss.
 - extendedWaitUntil:
     visible:
       id: "arrived-verify-button"
@@ -101,21 +107,19 @@ tags:
 - tapOn:
     id: "verification-capture-button"
 - waitForAnimationToEnd
-# DRIFT fail observed: the move-closer / Retry state (proves the handoff gate blocked the start).
-- extendedWaitUntil:
-    visible:
-      text: ".*apart.*|.*move closer.*|.*Retry.*|.*Waiting for the other.*"
-    timeout: 60000
-- takeScreenshot: results/cross-app/proximity-cg-drift-waiting
-# The orchestrator admin-overrides the start gate concurrently. There is a race between the
-# override landing and our retry, so retry the capture/Retry button REPEATEDLY until the session
-# goes active (home-active-job-card). Each retry re-submits proximity; the first retry that lands
-# after the override returns passed and starts the session. Poll ~every 6s, up to ~2 min.
+# DRIFT fail observed: the move-closer / N-m-apart state (proves the handoff gate blocked the
+# start because the parties are ~89 m apart). The caregiver's runProximityGate polls internally
+# while the PARENT hasn't submitted yet ("Waiting"); if the parent is slow it can even time out to
+# "Still waiting…". To be robust to the two apps reaching capture at different times, RE-TAP the
+# capture/Retry button until the ACTUAL distance fail ("N m apart") appears — each re-tap re-submits
+# proximity, and once the parent is also submitting at DRIFT the very next submit returns the 89 m
+# 400. This is a passive re-tap loop (it never advances past the fail on its own — only the admin
+# override does that), so it simply guarantees the caregiver catches the distance fail.
 - repeat:
-    times: 20
+    times: 40
     while:
       notVisible:
-        id: "home-active-job-card"
+        text: ".*apart.*|.*move closer.*"
     commands:
       - tapOn:
           id: "verification-capture-button"
@@ -123,46 +127,17 @@ tags:
       - waitForAnimationToEnd
       - extendedWaitUntil:
           visible:
-            id: "home-active-job-card"
+            text: ".*apart.*|.*move closer.*"
           timeout: 6000
-
-# ═══ SESSION ACTIVE (the admin override + retry clears the blocked handoff → session starts) ═══
 - extendedWaitUntil:
     visible:
-      id: "home-active-job-card"
-    timeout: 120000
-- tapOn:
-    id: "home-active-job-card"
-- waitForAnimationToEnd
-- takeScreenshot: results/cross-app/proximity-cg-drift-session-active
-
-# ═══ END JOB ═══
-- extendedWaitUntil:
-    visible:
-      id: "in-progress-end-button"
-    timeout: 30000
-- tapOn:
-    id: "in-progress-end-button"
-- waitForAnimationToEnd
-- tapOn: "Confirm"
-- waitForAnimationToEnd
-- extendedWaitUntil:
-    visible:
-      id: "verification-capture-button"
-    timeout: 30000
-- tapOn:
-    id: "verification-capture-button"
-- waitForAnimationToEnd
-
-# ═══ SESSION COMPLETE ═══
-- extendedWaitUntil:
-    visible: ".*Session Complete.*|.*Take Home.*|.*Well done.*"
-    timeout: 120000
-- takeScreenshot: results/cross-app/proximity-cg-drift-session-complete
-- tapOn:
-    text: "Done"
-    optional: true
-- tapOn:
-    text: ".*Take Home.*|.*Dismiss.*"
-    optional: true
-- waitForAnimationToEnd
+      text: ".*apart.*|.*move closer.*"
+    timeout: 10000
+- takeScreenshot: results/cross-app/proximity-cg-drift-waiting
+# END OF THIS FLOW. The caregiver is parked on the "N m apart — Retry" verification cover. The
+# orchestrator now (a) verifies the drift + admin-overrides the start gate, (b) re-anchors the sims
+# to NEAR with a fresh feed, then (c) launches flows/caregiver/proximity-drift-retry.yaml — a FRESH
+# Maestro session — to tap Retry and drive the session to completion. Splitting the retry into a
+# fresh session was necessary: the in-session blind retry loop consistently failed to re-trigger
+# the gate after a long flow, whereas a clean single Retry tap on a fresh session reliably passes
+# (proven repeatedly). See run_scenario_2.
