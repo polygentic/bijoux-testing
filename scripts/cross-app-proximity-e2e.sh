@@ -115,23 +115,17 @@ periodic_grant_location() {
   ) &
 }
 
-# Keep a CONTINUOUS CoreLocation feed running on a UDID across the whole scenario window.
-# CONTEXT (2026-07-15): the caregiver app's confirmArrival() calls currentFix() →
-# locationManager.requestLocation() — a ONE-SHOT fix — at the "I've Arrived" tap (and the handoff
-# proximity-check does the same). A single STATIC `simctl location set` reliably feeds CONTINUOUS
-# `startUpdatingLocation()` consumers (route map) but does NOT reliably satisfy a ONE-SHOT
-# requestLocation() on the simulator, so confirmArrival()'s currentFix() can throw and the arrival
-# POST never fires (arrived_at stays NULL; ArrivedView/arrived-verify-button never renders — the app
-# is correctly refusing to send empty coords, Phase 0 P3). `simctl location start` issues periodic
-# updates (1s), which is the more reliable way to feed a one-shot; this helper re-starts that feed
-# every ~90s so it never lapses through the accept→IOMW→arrival→handoff window. Background; caller
-# does not wait on it.
+# ⚠️ RETAINED-BUT-UNUSED (2026-07-16): all scenarios now use sim_tight_refresh (a tight `simctl
+# location set` loop) instead of this `simctl location start` feed. Reason: `set` and `start` are
+# MUTUALLY-EXCLUSIVE simctl location modes; running both on one UDID (as the old scenarios did)
+# churns the location so neither delivers reliably at the one-shot arrival/handoff moment. A tight
+# `set` loop keeps CLLocationManager.location continuously < ~2s old — and `set` is proven to reach
+# the app's CLLocationManager (a new `set` coord is picked up by the en-route app's matching report
+# within one cadence). Kept here for reference / potential future use; do not re-enable alongside
+# sim_tight_refresh.
 #
-# ⚠️ KNOWN-OPEN (see results/cross-app/PROXIMITY-UAT-STATUS.md): even with this continuous feed the
-# UI arrival did NOT complete on the current simulator (arrived_at still NULL post-"I've Arrived",
-# app lands on the Activity tab). Every arrived_at in the DB to date came from the API preflight,
-# never a UI flow. That residual failure is an app/simulator one-shot-location issue, NOT a harness
-# selector/assertion bug — do NOT weaken the arrived-verify-button assertion to make it "pass".
+# Keep a CONTINUOUS CoreLocation feed running on a UDID across the whole scenario window.
+# `simctl location start` issues periodic updates (1s); this helper re-starts that feed every ~90s.
 periodic_start_location() {
   local udid="$1" lat="$2" lng="$3" rounds="${4:-6}"
   (
@@ -184,10 +178,14 @@ run_scenario_1() {
   echo "  Caregiver S1 flow started (PID: $CG_PID)"
   sleep 8
   sim_grant_location "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID"
-  # Keep the caregiver location grant effective AND a CONTINUOUS CoreLocation feed running through
-  # the arrival window (sim TCC race + one-shot requestLocation — see periodic_start_location note).
   periodic_grant_location "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID" 12
-  periodic_start_location "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR" 6
+  # Tight 2s `set` loop keeps CLLocationManager.location fresh (< ~2s) so the cached-fallback
+  # fix's 60s freshness gate accepts it at the one-shot arrival/handoff moment. This is the
+  # PROVEN feed (a manual "I've Arrived" tap with this feed running POSTed /arrived → 200,
+  # arrived_at set, session created). NOTE: do NOT also run `simctl location start` here — the
+  # `start` (continuous) and `set` (tight) modes are mutually exclusive in simctl and interleaving
+  # them churns the location so neither delivers reliably at the one-shot moment (see sim-helpers).
+  sim_tight_refresh "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
 
   sleep 20  # let caregiver log in + go online before the parent books
 
@@ -199,7 +197,7 @@ run_scenario_1() {
   sleep 5
   sim_grant_location "$PARENT_UDID" "$PARENT_BUNDLE_ID"
   # Parent's handoff proximity-check also does a one-shot fix; keep its location fresh too.
-  periodic_start_location "$PARENT_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR" 6
+  sim_tight_refresh "$PARENT_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
 
   wait $CG_PID && pass "Caregiver S1 flow" || { fail "Caregiver S1 flow"; tail -25 "$CG_LOG"; }
   wait $P_PID && pass "Parent S1 flow"    || { fail "Parent S1 flow";    tail -25 "$P_LOG";  }
@@ -236,9 +234,10 @@ run_scenario_2() {
   echo "  Caregiver S2 flow started (PID: $CG_PID)"
   sleep 8
   sim_grant_location "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID"
-  # CG at NEAR (arrival passes); keep both fixes fresh through arrival + handoff windows.
+  # CG at NEAR (arrival passes); keep both fixes fresh through arrival + handoff windows via the
+  # tight `set` loop (see sim-helpers — do NOT also run `simctl location start`, the modes conflict).
   periodic_grant_location "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID" 12
-  periodic_start_location "$CAREGIVER_UDID" "$SIM_LAT_DRIFT_CG" "$SIM_LNG_DRIFT_CG" 6
+  sim_tight_refresh "$CAREGIVER_UDID" "$SIM_LAT_DRIFT_CG" "$SIM_LNG_DRIFT_CG"
   sleep 20
 
   local P_LOG="$ROOT_DIR/results/cross-app/proximity-s2-p.log"
@@ -249,7 +248,7 @@ run_scenario_2() {
   sleep 5
   sim_grant_location "$PARENT_UDID" "$PARENT_BUNDLE_ID"
   # Parent stays at DRIFT (handoff fails until admin override); keep its fix fresh for the check.
-  periodic_start_location "$PARENT_UDID" "$SIM_LAT_DRIFT_PARENT" "$SIM_LNG_DRIFT_PARENT" 6
+  sim_tight_refresh "$PARENT_UDID" "$SIM_LAT_DRIFT_PARENT" "$SIM_LNG_DRIFT_PARENT"
 
   # Poll for the session id (booking is created by the parent flow), then admin-override the
   # start proximity gate. The caregiver drift flow is waiting on proximity-waiting-label
@@ -307,7 +306,7 @@ run_scenario_3() {
   sim_grant_location "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID"
   # Caregiver submits first then polls ~35s for the parent; keep its fix fresh the whole time.
   periodic_grant_location "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID" 15
-  periodic_start_location "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR" 6
+  sim_tight_refresh "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
 
   # Parent starts 35s later (caregiver reaches the polling state by then).
   sleep 35
@@ -318,7 +317,7 @@ run_scenario_3() {
   echo "  Parent S3 flow started (PID: $P_PID)"
   sleep 5
   sim_grant_location "$PARENT_UDID" "$PARENT_BUNDLE_ID"
-  periodic_start_location "$PARENT_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR" 6
+  sim_tight_refresh "$PARENT_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
 
   wait $CG_PID && pass "Caregiver S3 flow" || { fail "Caregiver S3 flow"; tail -25 "$CG_LOG"; }
   wait $P_PID && pass "Parent S3 flow"    || { fail "Parent S3 flow";    tail -25 "$P_LOG";  }
@@ -357,7 +356,7 @@ run_scenario_4() {
   echo "  Parent S4 flow started (PID: $P_PID)"
   sleep 5
   sim_grant_location "$PARENT_UDID" "$PARENT_BUNDLE_ID"  # parent grants normally
-  periodic_start_location "$PARENT_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR" 6
+  sim_tight_refresh "$PARENT_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
 
   # Poll for the denial screenshot before granting caregiver location (max 180s, 5s interval).
   local denial_screenshot="$ROOT_DIR/results/cross-app/proximity-cg-permission-denied.png"
@@ -376,7 +375,7 @@ run_scenario_4() {
   # Grant caregiver location AND keep the CoreLocation fix fresh so the retry
   # ("Try Again" / "I've Arrived") one-shot currentFix() resolves instead of throwing noFix.
   sim_grant_location "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID"
-  periodic_start_location "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR" 6
+  sim_tight_refresh "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
 
   wait $CG_PID && pass "Caregiver S4 flow (denial + retry)" || { fail "Caregiver S4 flow"; tail -25 "$CG_LOG"; }
   wait $P_PID && pass "Parent S4 flow"                      || { fail "Parent S4 flow";    tail -25 "$P_LOG";  }
