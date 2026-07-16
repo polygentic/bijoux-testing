@@ -2,7 +2,7 @@
 # uat: UAT-20.1 — Proximity Happy Path (Parent)
 # Scenario: Both sims NEAR, PROXIMITY_CHECK_ENABLED=true, full lifecycle.
 # Pre: orchestrator runs sim_set_location NEAR + sim_grant_location before/after launch.
-# Mirrors parent/login-book-session-end.yaml; the parent-proximity-waiting-label wait is a
+# Mirrors parent/login-book-session-end.yaml; the proximity-waiting-label wait is a
 # defensive notVisible check (clears once both parties' proximity resolves).
 appId: polygentic.bijouxParentApp
 tags:
@@ -80,11 +80,11 @@ tags:
     timeout: 10000
 - tapOn: "Capture"
 - waitForAnimationToEnd
-# If the parent submits proximity first, the app shows parent-proximity-waiting-label while
+# If the parent submits proximity first, the app shows proximity-waiting-label while
 # polling for the caregiver's submission. Both NEAR → resolves quickly; 60s is generous.
 - extendedWaitUntil:
     notVisible:
-      id: "parent-proximity-waiting-label"
+      id: "proximity-waiting-label"
     timeout: 60000
 
 # ═══ WAIT FOR SESSION ACTIVE (caregiver must also verify) ═══

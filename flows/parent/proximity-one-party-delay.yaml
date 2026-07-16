@@ -2,7 +2,7 @@
 # uat: UAT-20.3 — One-Party Delayed (Parent — submits second)
 # Scenario: Both sims NEAR. Caregiver submits proximity-check first (gets 'waiting').
 #   The parent launches ~35s later; when it submits, both resolve to 'passed' immediately
-#   (parent-proximity-waiting-label should not appear, or clears within a couple seconds).
+#   (proximity-waiting-label should not appear, or clears within a couple seconds).
 # The 35s delay is implemented by the orchestrator (sleep 35), NOT in this flow.
 # Pre: orchestrator runs sim_set_location NEAR + sim_grant_location.
 appId: polygentic.bijouxParentApp
@@ -80,10 +80,10 @@ tags:
 - tapOn: "Capture"
 - waitForAnimationToEnd
 # Parent submits second → proximity-check returns 'passed' immediately.
-# parent-proximity-waiting-label should NOT appear (or clears within 1-2s).
+# proximity-waiting-label should NOT appear (or clears within 1-2s).
 - extendedWaitUntil:
     notVisible:
-      id: "parent-proximity-waiting-label"
+      id: "proximity-waiting-label"
     timeout: 15000
 
 # ═══ SESSION ACTIVE ═══
