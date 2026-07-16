@@ -44,9 +44,37 @@ export SIM_LAT_DRIFT_PARENT SIM_LNG_DRIFT_PARENT SIM_LAT_DRIFT_CG SIM_LNG_DRIFT_
 # Device-level (not per-app); persists until changed or cleared. Safe to call
 # before or after launchApp. `xcrun simctl location set` takes "<lat>,<lng>" as a
 # single comma-separated argument (no space).
+#
+# ⚠️ NOTE (2026-07-15): a single `set` provides a STATIC point that continuous
+# `startUpdatingLocation()` consumers read fine, but ONE-SHOT `requestLocation()`
+# (used by the caregiver app's confirmArrival → currentFix()) does NOT reliably
+# receive it on the simulator, so the one-shot can fail and the arrival POST never
+# fires. For any flow that hits a one-shot fix (arrival, handoff proximity-check),
+# prefer sim_start_location (continuous feed). (Even the continuous feed did not fully
+# resolve UI arrival on the current sim — see PROXIMITY-UAT-STATUS.md; that residual is
+# an app/simulator one-shot-location issue, not a harness bug.)
 sim_set_location() {
   local udid="$1" lat="$2" lng="$3"
   xcrun simctl location "$udid" set "${lat},${lng}"
+}
+
+# sim_start_location <UDID> <lat> <lng> [span_meters]
+# Starts a CONTINUOUS simulated-location feed anchored at (lat,lng). Unlike `set`,
+# `simctl location start` issues periodic location updates (default 1s interval),
+# which is what makes the caregiver app's one-shot requestLocation()/currentFix()
+# reliably deliver a fix. Uses two waypoints ~span_meters apart (default 12 m, far
+# below the 100 m arrival and 50 m handoff thresholds so the device stays "at" the
+# address) at a slow speed so the feed runs for minutes across the whole
+# accept→IOMW→arrival→handoff window. Re-invoke to refresh (idempotent; restarts the
+# scenario). Anchors on the FIRST point so proximity distance stays ~0–12 m.
+sim_start_location() {
+  local udid="$1" lat="$2" lng="$3" span="${4:-12}"
+  # 1° latitude ≈ 111,000 m → span meters north as a decimal-degree delta.
+  local lat2
+  lat2=$(python3 -c "print(round(${lat} + ${span}/111000.0, 7))")
+  # speed 0.1 m/s over ~span m ⇒ the interpolation runs ~span*10 s (≈120 s for 12 m),
+  # emitting a fix every 1 s the entire time. Callers refresh via periodic_start_location.
+  xcrun simctl location "$udid" start --speed=0.1 --interval=1 "${lat},${lng}" "${lat2},${lng}"
 }
 
 # sim_grant_location <UDID> <bundleId>

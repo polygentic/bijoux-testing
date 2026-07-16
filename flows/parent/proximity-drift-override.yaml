@@ -2,7 +2,7 @@
 # uat: UAT-20.2 — Drift → Admin Override → Retry (Parent)
 # Scenario: Parent sim at DRIFT (~89m from caregiver). Handoff start proximity FAILS.
 #   The orchestrator calls the admin session proximity-override API, then the app re-enables
-#   the verify flow (parent-proximity-waiting-label clears).
+#   the verify flow (proximity-waiting-label clears).
 # Pre: orchestrator runs sim_set_location (parent DRIFT) + sim_grant_location.
 appId: polygentic.bijouxParentApp
 tags:
@@ -80,13 +80,13 @@ tags:
 # Parent is at DRIFT → proximity-check returns failed/waiting; the app shows the waiting label.
 - extendedWaitUntil:
     visible:
-      id: "parent-proximity-waiting-label"
+      id: "proximity-waiting-label"
     timeout: 30000
 - takeScreenshot: results/cross-app/proximity-p-drift-fail
 # The orchestrator calls the admin proximity-override API here; the app then re-enables verify.
 - extendedWaitUntil:
     notVisible:
-      id: "parent-proximity-waiting-label"
+      id: "proximity-waiting-label"
     timeout: 120000
 
 # ═══ SESSION ACTIVE (after override clears the block) ═══
