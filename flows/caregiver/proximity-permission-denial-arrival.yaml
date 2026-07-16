@@ -1,14 +1,19 @@
 # jira: BA-302
 # uat: UAT-20.4 — Permission Denial at Arrival (Caregiver, part B: denied arrival + retry)
-# Scenario part B: the app was TERMINATED by the orchestrator's `simctl privacy revoke location`
-#   right before arrival. This flow RELAUNCHES it WITHOUT clearing state (login + accepted offer +
-#   IOMW persist), so the caregiver app's en-route recovery restores the "I've Arrived" screen.
-#   With location now DENIED, tapping "I've Arrived" must show the INLINE location message
-#   (arrival-proximity-message: "Turn on location to confirm you've arrived.") and NOT POST
-#   /arrived (backend arrived_at stays NULL) and NOT fall into a full-screen error. The
-#   orchestrator then verifies arrived_at is still NULL, GRANTS location back, and the flow taps
-#   "I've Arrived" again — this time currentFix() resolves and arrival succeeds.
-# Pre: orchestrator has REVOKED location TCC (app terminated) and set sim location NEAR.
+# Scenario part B: the app was TERMINATED by the orchestrator and its CoreLocation authorization was
+#   GENUINELY DENIED (orchestrator set locationd Authorization=1 via sim_deny_location_coreloc — a
+#   real permission revoke, because `simctl privacy revoke location` does NOT flip authorizationStatus
+#   on this simulator). This flow RELAUNCHES it WITHOUT clearing state (login + accepted offer + IOMW
+#   persist), so the caregiver app's en-route recovery restores the "I've Arrived" screen. On cold
+#   launch the app reads authorizationStatus == .denied. Tapping "I've Arrived" makes currentFix()
+#   throw .permissionDenied → the app shows the INLINE permission message
+#   (arrival-proximity-message: "Turn on location to confirm you've arrived.") and does NOT POST
+#   /arrived (backend arrived_at stays NULL) and does NOT fall into a full-screen error. The
+#   orchestrator then verifies arrived_at is still NULL, GRANTS location back (locationd
+#   Authorization=2), and the flow taps "I've Arrived" again — this time currentFix() passes its
+#   authorization guard, resolves at NEAR, and arrival succeeds.
+# Pre: orchestrator has DENIED CoreLocation (app terminated) with the sim location set NEAR the
+#   address (so the ONLY failing factor is the revoked permission, not distance).
 appId: polygentic.bijouxCaregiverApp
 tags:
   - cross-app
@@ -86,19 +91,28 @@ tags:
     text: "Don't Allow"
     optional: true
 - waitForAnimationToEnd
-# The app's confirmArrival() catches the location error (a no-fix from a denied/absent location, or
-# — on this simulator, where simctl cannot deny CoreLocation — a proximity 400 from being FAR from
-# the address) and sets the inline arrival-proximity-message, staying en route: it does NOT POST
-# /arrived and does NOT switch to a full-screen error. Assert the INLINE message (by id) + that it's
-# a location/proximity message (either "Turn on location…" OR "N m from the address — move closer…")
-# and NOT a full-screen crash.
+# The app's confirmArrival() calls env.location.currentFix(), which THROWS
+# LocationFixError.permissionDenied because CoreLocation authorization is genuinely revoked (the
+# orchestrator set locationd Authorization=1 for this app — a REAL denial, not a distance move). The
+# catch sets arrivalProximityMessage = "Turn on location to confirm you've arrived." and stays en
+# route: it does NOT POST /arrived and does NOT switch to a full-screen error. Assert the INLINE
+# message (by id) AND that it is the PERMISSION message specifically — NOT the distance-fail message
+# ("N m from the address — move closer…"), which would mean location was still authorized and the
+# denial trigger was not exercised. This is the scenario's defining condition.
 - extendedWaitUntil:
     visible:
       id: "arrival-proximity-message"
     timeout: 20000
 - takeScreenshot: results/cross-app/proximity-cg-permission-denied
+# REQUIRE the permission-denied message. Location denial → "Turn on location to confirm you've
+# arrived." A distance fail would read "…from the address — move closer…"; assert that is NOT shown,
+# so the test fails loud if location was (wrongly) still authorized.
 - assertVisible:
-    text: ".*Turn on location.*|.*from the address.*|.*move closer.*"
+    text: ".*Turn on location.*"
+- assertNotVisible:
+    text: ".*from the address.*"
+- assertNotVisible:
+    text: ".*move closer.*"
 - assertNotVisible:
     text: "Something went wrong"
 - assertNotVisible:

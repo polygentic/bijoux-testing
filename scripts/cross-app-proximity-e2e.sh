@@ -490,12 +490,16 @@ run_scenario_3() {
 # whole journey; the denial must be injected specifically at the arrival moment. Structure:
 #   A) part-A flow: login→online→accept→IOMW→en-route (location GRANTED for the early flow), stops
 #      at en-route without tapping "I've Arrived".
-#   B) orchestrator REVOKES location TCC right before arrival (this TERMINATES the app), records
-#      the arrived_at baseline (NULL), then launches the part-B flow.
+#   B) orchestrator TERMINATES the app and GENUINELY DENIES CoreLocation via
+#      sim_deny_location_coreloc (locationd Authorization=1 — a real revoke; `simctl privacy` cannot
+#      flip authorizationStatus on this sim). The sim location stays NEAR the address so the ONLY
+#      failing factor is the revoked permission. Records the arrived_at baseline (NULL), launches part-B.
 #   C) part-B flow: relaunch (state preserved → en-route recovery) → tap "I've Arrived" with
-#      location DENIED → INLINE "Turn on location…" message, NO POST, NO full-screen crash.
-#   D) orchestrator confirms arrived_at STILL NULL (no /arrived fired), GRANTS location back +
-#      fresh fix, then part-B retries "I've Arrived" → arrival succeeds (arrived_at set).
+#      CoreLocation DENIED → currentFix() throws .permissionDenied → INLINE "Turn on location…"
+#      message (NOT a distance message), NO POST, NO full-screen crash.
+#   D) orchestrator asserts arrived_at STILL NULL (no /arrived fired) AND that CoreLocation read
+#      DENIED (Authorization=1), then GRANTS it back (Authorization=2) + fresh fix; part-B retries
+#      "I've Arrived" → arrival succeeds at NEAR (arrived_at set), proving denial was the sole cause.
 run_scenario_4() {
   step "SCENARIO 4: Permission denial AT ARRIVAL — revoke → inline error → grant → retry"
   setup_caregiver_eligibility
@@ -554,30 +558,48 @@ run_scenario_4() {
     [[ -z "$S4_BOOKING_ID" ]] && { sleep 3; bpoll=$((bpoll + 1)); }
   done
 
-  # ── B) DENY location right before arrival (terminates the app) ───────────────────────────────
+  # ── B) DENY CoreLocation right before arrival (the REAL permission-denial trigger) ───────────
   # Stop the fresh-fix loop AND the periodic GRANT loop first — a lingering grant loop would
-  # immediately re-grant any permission we revoke and defeat the denial.
+  # immediately re-grant the permission we deny and defeat the denial.
   kill_sim_refreshers
   kill_periodic_grants
   sleep 1
-  # LOCATION-DENIAL TRIGGER — SIMULATOR LIMITATION + WORKAROUND (2026-07-16, evidence-based):
-  # CoreLocation authorization on this simulator (iOS 26.5) is managed by locationd, NOT TCC.db —
-  # so `simctl privacy revoke/reset location` does NOT flip CLLocationManager.authorizationStatus to
-  # .denied/.notDetermined (verified: the caregiver's locationd clients.plist stays Authorization=2
-  # and NO permission dialog ever appears on relaunch), and `simctl location clear` does NOT remove
-  # the last-set fix. Both were tried and the arrival wrongly SUCCEEDED. We STILL attempt the reset
-  # (harmless, correct on devices), and — to reliably exercise the app's arrival-time location-error
-  # RESILIENCE (the actual behaviour under test: an inline arrival-proximity-message, phase preserved,
-  # NO /arrived POST, no full-screen crash, then recover on retry) — we set the caregiver FAR from the
-  # booking (~311 m, > the 100 m arrival threshold). At the arrival tap the backend returns a 400
-  # proximity fail, and the app shows its inline arrival-proximity-message ("You're N m from the
-  # address — move closer…") WITHOUT POSTing arrived. Granting/moving NEAR + retry then succeeds.
-  # This is the same inline-error surface as a location denial (same accessibility id, same no-POST,
-  # same retry recovery); the permission-denied *trigger* is not reproducible on this simulator.
-  xcrun simctl privacy "$CAREGIVER_UDID" reset location "$CAREGIVER_BUNDLE_ID" 2>/dev/null || true
-  sim_set_location "$CAREGIVER_UDID" "$SIM_LAT_FAR" "$SIM_LNG_FAR"
-  sim_tight_refresh "$CAREGIVER_UDID" "$SIM_LAT_FAR" "$SIM_LNG_FAR" 1 120
-  echo "  S4: caregiver moved FAR (~311 m) before arrival — arrival will inline-fail (no POST); simctl cannot deny CoreLocation on this sim (see comment)"
+  # REAL LOCATION-DENIAL TRIGGER (2026-07-16, root-cause fix — replaces the prior distance-fail
+  # SUBSTITUTION). The scenario's DEFINING condition is a genuine permission denial: the app's
+  # `CoreLocationService.currentFix()` must throw `LocationFixError.permissionDenied` (its guard
+  # requires authorizationStatus == .authorizedWhenInUse/.authorizedAlways), which drives
+  # `confirmArrival()` down the "Turn on location to confirm you've arrived." branch — a DIFFERENT
+  # code path from the distance-fail ("N m from the address — move closer…") branch that the old
+  # harness hit by moving the caregiver FAR.
+  #
+  # `simctl privacy revoke location` does NOT flip authorizationStatus on this simulator because
+  # CoreLocation auth is owned by the `locationd` daemon (clients.plist), not TCC.db. So we deny it
+  # AT THE SOURCE via sim_deny_location_coreloc (stops locationd, sets the client's Authorization to
+  # 1=DENIED, relaunches locationd; see scripts/lib/sim-helpers.sh). The helper VERIFIES the injected
+  # value and returns non-zero if it can't deny — so this FAILS LOUD rather than silently degrading.
+  #
+  # CRUCIAL: the sim location feed stays anchored NEAR the address the whole time. The caregiver is
+  # AT the address — the ONLY thing failing the arrival is the revoked permission. So when we grant
+  # it back and retry (step D), arrival succeeds immediately, proving the denial (not distance) was
+  # the sole cause. locationd deny does not terminate the app, so terminate it explicitly; part-B
+  # relaunches cold and reads .denied fresh.
+  xcrun simctl terminate "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID" 2>/dev/null || true
+  sleep 1
+  if ! sim_deny_location_coreloc "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID"; then
+    fail "S4: could NOT deny CoreLocation (locationd edit failed) — cannot exercise the permission-denial trigger"
+    kill "$P_PID" 2>/dev/null || true
+    return
+  fi
+  # Keep the sim's device location NEAR (a real user at the address) so the ONLY failing factor is
+  # authorization. NOTE: no tight-refresh loop here — a denied app never reads location, and we must
+  # not re-grant permission; the feed is only re-established after the grant-back in step D.
+  sim_set_location "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
+  # HOLD the denial: the caregiver app calls requestWhenInUseAuthorization() when the en-route screen
+  # appears, which on this simulator can spuriously re-authorize the app (a sim artifact — a real
+  # denied-user device would stay denied). This background loop re-asserts DENIED (~2 min) so the app
+  # is genuinely denied at the "I've Arrived" tap. Stopped before the grant-back in step D.
+  sim_hold_deny_location_coreloc "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID" 40 4
+  echo "  S4: CoreLocation DENIED at the address (NEAR) + hold-deny loop running — arrival must hit the permission-denied branch (no POST)"
   # Baseline: arrived_at must be NULL before the denied arrival (no arrival happened yet).
   local ARRIVED_BEFORE
   ARRIVED_BEFORE=$(api_offer_arrived_at "$S4_BOOKING_ID")
@@ -596,18 +618,32 @@ run_scenario_4() {
   if [[ ! -f "$denied_shot" ]]; then
     fail "S4: denied-arrival inline-error screenshot not found after 240s"
   else
-    pass "S4: denied-arrival inline location message observed (no crash)"
+    pass "S4: PERMISSION-denied inline message ('Turn on location…') observed at arrival (no crash, no distance message)"
   fi
 
-  # ── D) confirm NO /arrived POST fired (arrived_at STILL NULL), then grant location back ──────
+  # ── D) confirm NO /arrived POST fired (arrived_at STILL NULL), then GRANT CoreLocation back ───
   local ARRIVED_DENIED
   ARRIVED_DENIED=$(api_offer_arrived_at "$S4_BOOKING_ID")
   assert_eq "S4 arrived_at STILL NULL during denial (no POST /arrived)" "${ARRIVED_DENIED:-NULL}" "NULL"
 
-  sim_grant_location "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID"
+  # Prove it really WAS denied at the app's level (belt-and-suspenders alongside the UI message +
+  # arrived_at NULL): the locationd authorization must read DENIED (1) at this point.
+  local DENIED_AUTH
+  DENIED_AUTH=$(sim_coreloc_auth "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID")
+  assert_eq "S4 CoreLocation was genuinely DENIED (locationd Authorization=1)" "${DENIED_AUTH:-NONE}" "1"
+
+  # Stop the hold-deny loop BEFORE granting back, else it would immediately re-deny the grant.
+  kill_coreloc_deny
+  sleep 1
+  # Restore CoreLocation authorization AT THE SOURCE (locationd) so the app's next currentFix()
+  # passes its authorization guard. The app is running; the tight `set` feed below keeps a fresh
+  # fix so the retry one-shot resolves, and the retry `repeat` loop re-taps until currentFix()
+  # observes the restored authorization.
+  sim_grant_location_coreloc "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID"
   periodic_grant_location "$CAREGIVER_UDID" "$CAREGIVER_BUNDLE_ID" 8
+  sim_set_location "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
   sim_tight_refresh "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
-  echo "  S4: location granted back — part-B will retry 'I've Arrived'"
+  echo "  S4: CoreLocation granted back — part-B will retry 'I've Arrived' (arrival now succeeds at NEAR)"
 
   wait "$CG2_PID" && pass "Caregiver S4 part-B flow (denial + grant + retry)" \
     || { fail "Caregiver S4 part-B flow"; tail -25 "${CG_LOG%.log}-arrival.log"; }
