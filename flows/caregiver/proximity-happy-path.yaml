@@ -65,6 +65,14 @@ tags:
 - extendedWaitUntil:
     visible: "I've Arrived"
     timeout: 30000
+# The "I've Arrived" button sits BELOW the fold on the en-route screen (map + details
+# push it under the tab bar). Without scrolling it into view, Maestro taps its off-screen
+# coordinates which collide with the bottom tab bar and mis-navigate to Activity — so
+# confirmArrival() never runs and /arrived is never POSTed. Scroll it above the tab bar first.
+- swipe:
+    direction: UP
+    duration: 500
+- waitForAnimationToEnd
 - tapOn: "I've Arrived"
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/proximity-cg-arrived

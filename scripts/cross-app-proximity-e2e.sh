@@ -274,6 +274,16 @@ run_scenario_2() {
     OVERRIDE_HTTP=$(printf '%s' "$OVERRIDE_RESP" | tail -n1)
     assert_eq "S2 admin override HTTP 200" "$OVERRIDE_HTTP" "200"
     pass "Admin proximity override sent (session $S2_SESSION_ID) — apps should proceed"
+
+    # After the START handoff is overridden, the parties are together for the session. Bring the
+    # parent from DRIFT to NEAR so the END-of-session proximity gate passes NATURALLY (the scenario
+    # overrides only the START gate; without this the END gate would also fail at 89 m and the
+    # session could never complete). Refresh both sims tightly at NEAR through the end window.
+    kill_sim_refreshers
+    sim_set_location "$PARENT_UDID"    "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
+    sim_set_location "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
+    sim_tight_refresh "$CAREGIVER_UDID" "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
+    sim_tight_refresh "$PARENT_UDID"    "$SIM_LAT_NEAR" "$SIM_LNG_NEAR"
   else
     fail "S2: could not resolve session ID after ~75s of polling"
   fi

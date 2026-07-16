@@ -65,11 +65,24 @@ tags:
 - extendedWaitUntil:
     visible: "I've Arrived"
     timeout: 30000
+# Scroll the below-the-fold "I've Arrived" button above the tab bar before tapping, or
+# Maestro taps its off-screen coordinates and mis-navigates to Activity (see happy-path).
+- swipe:
+    direction: UP
+    duration: 500
+- waitForAnimationToEnd
 - tapOn: "I've Arrived"
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/proximity-cg-drift-arrived
 
-# ═══ VERIFY START — handoff proximity BLOCKED (parent at DRIFT) ═══
+# ═══ VERIFY START — handoff proximity BLOCKED (both parties 89 m apart at DRIFT) ═══
+# App sequence: tapping arrived-verify-button opens the verification cover; the silent handoff
+# proximity gate runs on CAPTURE (completeSessionVerification -> runProximityGate). Both parties
+# are ~89 m apart (parent at DRIFT), which exceeds the 50 m handoff threshold, so the backend
+# returns proximityFailed — BOTH apps stop polling and show a "You're 90 m apart — move closer"
+# error with the capture button relabelled "Retry". The orchestrator admin-overrides the start
+# gate SERVER-SIDE, but each app has stopped polling — so each must tap Retry to re-submit; the
+# now-overridden gate returns passed and the session goes active.
 - extendedWaitUntil:
     visible:
       id: "arrived-verify-button"
@@ -81,23 +94,39 @@ tags:
 - tapOn:
     id: "arrived-verify-button"
 - waitForAnimationToEnd
-# Parent is at DRIFT → the silent gate stays waiting (or shows a move-closer message).
-- extendedWaitUntil:
-    visible:
-      id: "proximity-waiting-label"
-    timeout: 30000
-- takeScreenshot: results/cross-app/proximity-cg-drift-waiting
-# The orchestrator now calls the admin session proximity-override API. Once the override lands,
-# the gate opens and the capture control becomes available.
 - extendedWaitUntil:
     visible:
       id: "verification-capture-button"
-    timeout: 120000
+    timeout: 30000
 - tapOn:
     id: "verification-capture-button"
 - waitForAnimationToEnd
+# DRIFT fail observed: the move-closer / Retry state (proves the handoff gate blocked the start).
+- extendedWaitUntil:
+    visible:
+      text: ".*apart.*|.*move closer.*|.*Retry.*|.*Waiting for the other.*"
+    timeout: 60000
+- takeScreenshot: results/cross-app/proximity-cg-drift-waiting
+# The orchestrator admin-overrides the start gate concurrently. There is a race between the
+# override landing and our retry, so retry the capture/Retry button REPEATEDLY until the session
+# goes active (home-active-job-card). Each retry re-submits proximity; the first retry that lands
+# after the override returns passed and starts the session. Poll ~every 6s, up to ~2 min.
+- repeat:
+    times: 20
+    while:
+      notVisible:
+        id: "home-active-job-card"
+    commands:
+      - tapOn:
+          id: "verification-capture-button"
+          optional: true
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          visible:
+            id: "home-active-job-card"
+          timeout: 6000
 
-# ═══ SESSION ACTIVE ═══
+# ═══ SESSION ACTIVE (the admin override + retry clears the blocked handoff → session starts) ═══
 - extendedWaitUntil:
     visible:
       id: "home-active-job-card"

@@ -80,6 +80,13 @@ tags:
 - takeScreenshot: results/cross-app/proximity-p-drift-caregiver-arrived
 
 # ═══ VERIFY START — proximity FAILS (parent at DRIFT) ═══
+# App behaviour: at DRIFT (>50 m handoff threshold) the parent's proximity gate first shows the
+# "Waiting for the other person…" overlay (proximity-waiting-label) while the caregiver hasn't
+# submitted; once both parties submit, the backend returns proximityFailed (too far) and the
+# parent STOPS polling, showing a "move closer … Retry" error on the verification cover. The
+# admin override (sent by the orchestrator) clears the gate SERVER-SIDE but the parent app has
+# stopped polling — so the parent must tap Retry (the capture button relabelled "Retry") to
+# re-submit; the now-overridden gate returns passed and the session proceeds.
 - tapOn: "Start Identity Verification"
 - waitForAnimationToEnd
 - extendedWaitUntil:
@@ -87,25 +94,41 @@ tags:
     timeout: 10000
 - tapOn: "Capture"
 - waitForAnimationToEnd
-# Parent is at DRIFT → proximity-check returns failed/waiting; the app shows the waiting label.
+# Observe the DRIFT fail/wait state (either the waiting overlay or the move-closer Retry error).
 - extendedWaitUntil:
     visible:
-      id: "proximity-waiting-label"
-    timeout: 30000
+      text: ".*Waiting for the other.*|.*move closer.*|.*apart.*|.*Retry.*"
+    timeout: 60000
 - takeScreenshot: results/cross-app/proximity-p-drift-fail
-# The orchestrator calls the admin proximity-override API here; the app then re-enables verify.
-- extendedWaitUntil:
-    notVisible:
-      id: "proximity-waiting-label"
-    timeout: 120000
+# The orchestrator admin-overrides the start gate concurrently. Race between the override landing
+# and our retry, so retry the capture/Retry button REPEATEDLY until the session goes active. Each
+# retry re-submits proximity; the first retry after the override returns passed and starts it.
+- repeat:
+    times: 20
+    while:
+      notVisible: ".*In Progress.*|.*End Job.*"
+    commands:
+      - tapOn:
+          id: "verification-capture-button"
+          optional: true
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          visible: ".*In Progress.*|.*End Job.*"
+          timeout: 6000
 
-# ═══ SESSION ACTIVE (after override clears the block) ═══
+# ═══ SESSION ACTIVE (after override + retry clears the block) ═══
 - extendedWaitUntil:
     visible: ".*In Progress.*|.*End Job.*"
     timeout: 120000
+# Reach the ActiveSessionView (end button lives there, not on the Home card): expand the
+# In-Progress card, then tap "View Full Session".
 - tapOn:
-    id: "home-active-session-card"
-    optional: true
+    text: ".*In Progress.*"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "View Full Session"
+    timeout: 10000
+- tapOn: "View Full Session"
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/proximity-p-drift-session-active
 - extendedWaitUntil:

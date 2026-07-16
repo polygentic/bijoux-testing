@@ -137,6 +137,25 @@ sim_tight_refresh() {
       i=$((i + 1))
     done
   ) &
+  # Track the loop PID so kill_sim_refreshers can stop it (e.g. when re-anchoring
+  # sims mid-scenario, or on cleanup). Without this the ~7 min loops orphan and
+  # churn the sim location across runs.
+  SIM_REFRESH_PIDS+=("$!")
+}
+
+# PIDs of the background sim_tight_refresh loops, so they can be stopped.
+SIM_REFRESH_PIDS=()
+
+# kill_sim_refreshers
+# Stops all background sim_tight_refresh loops started this process. Call before
+# re-anchoring the sims to a new coordinate (so the old loop doesn't fight the new
+# one) and at scenario end (so loops don't orphan and churn the next run's GPS).
+kill_sim_refreshers() {
+  local pid
+  for pid in "${SIM_REFRESH_PIDS[@]}"; do
+    [[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true
+  done
+  SIM_REFRESH_PIDS=()
 }
 
 # sim_grant_location <UDID> <bundleId>
