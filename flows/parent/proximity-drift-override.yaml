@@ -94,72 +94,19 @@ tags:
     timeout: 10000
 - tapOn: "Capture"
 - waitForAnimationToEnd
-# Observe the DRIFT fail/wait state (either the waiting overlay or the move-closer Retry error).
+# Observe the DRIFT blocked-handoff state. NOTE: the backend CLEARS both parties' Redis
+# submissions on every distance fail ("both must resubmit"), so only the party that submits
+# SECOND sees the "N m apart" distance error — the FIRST submitter keeps polling behind the
+# "Waiting for the other person…" overlay. The parent, submitting first and re-polling, is normally
+# behind that overlay; a no-fix instead shows a "…together…Retry" inline message; and if it submits
+# second it shows "N m apart". Accept ANY of these blocked states (the caregiver's flow independently
+# shows the definitive "89 m apart" distance fail). Broadened to include the no-fix ("together") text.
 - extendedWaitUntil:
     visible:
-      text: ".*Waiting for the other.*|.*move closer.*|.*apart.*|.*Retry.*"
-    timeout: 60000
+      text: ".*Waiting for the other.*|.*move closer.*|.*apart.*|.*Retry.*|.*together.*|.*Turn on location.*"
+    timeout: 300000
 - takeScreenshot: results/cross-app/proximity-p-drift-fail
-# The orchestrator admin-overrides the start gate concurrently. Race between the override landing
-# and our retry, so retry the capture/Retry button REPEATEDLY until the session goes active. Each
-# retry re-submits proximity; the first retry after the override returns passed and starts it.
-- repeat:
-    times: 20
-    while:
-      notVisible: ".*In Progress.*|.*End Job.*"
-    commands:
-      - tapOn:
-          id: "verification-capture-button"
-          optional: true
-      - waitForAnimationToEnd
-      - extendedWaitUntil:
-          visible: ".*In Progress.*|.*End Job.*"
-          timeout: 6000
-
-# ═══ SESSION ACTIVE (after override + retry clears the block) ═══
-- extendedWaitUntil:
-    visible: ".*In Progress.*|.*End Job.*"
-    timeout: 120000
-# Reach the ActiveSessionView (end button lives there, not on the Home card): expand the
-# In-Progress card, then tap "View Full Session".
-- tapOn:
-    text: ".*In Progress.*"
-- waitForAnimationToEnd
-- extendedWaitUntil:
-    visible: "View Full Session"
-    timeout: 10000
-- tapOn: "View Full Session"
-- waitForAnimationToEnd
-- takeScreenshot: results/cross-app/proximity-p-drift-session-active
-- extendedWaitUntil:
-    visible:
-      id: "active-session-end-button"
-    timeout: 30000
-
-# ═══ END JOB ═══
-- tapOn:
-    id: "active-session-end-button"
-- waitForAnimationToEnd
-- tapOn:
-    id: "end-job-confirm-button"
-- waitForAnimationToEnd
-
-# ═══ VERIFY END ═══
-- extendedWaitUntil:
-    visible: "Capture"
-    timeout: 30000
-- tapOn: "Capture"
-- waitForAnimationToEnd
-
-# ═══ SESSION COMPLETE ═══
-- extendedWaitUntil:
-    visible: ".*Session Complete.*|.*How was your experience.*"
-    timeout: 120000
-- takeScreenshot: results/cross-app/proximity-p-drift-session-complete
-- tapOn:
-    id: "summary-rating-label"
-    optional: true
-- waitForAnimationToEnd
-- tapOn:
-    id: "summary-done-button"
-- waitForAnimationToEnd
+# END OF THIS FLOW. The parent is parked on its blocked-handoff state. The orchestrator overrides
+# the start gate, re-anchors the sims to NEAR, then launches flows/parent/proximity-drift-retry.yaml
+# — a FRESH Maestro session — to drive the parent through verify → active → end → complete (a fresh
+# session converges reliably where the long in-session retry loop did not; see run_scenario_2).

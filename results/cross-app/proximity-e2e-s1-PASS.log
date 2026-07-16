@@ -1,0 +1,28 @@
+
+═══ STEP 1: Authenticate parent, caregiver (Maria), admin ═══
+  ✓ PASS: Parent token
+  ✓ PASS: Caregiver token
+  ✓ PASS: Admin token
+
+═══ STEP 2: Boot simulators ═══
+  ✓ PASS: Both simulators booted
+
+═══ STEP 3: SCENARIO 1: Happy path — both sims NEAR, flag ON ═══
+  [db-reset] purging transactional rows (FK-safe order)…
+  [db-reset] re-seeding UAT baseline fixtures…
+  [db-reset] clean slate restored: 4bookings, 2sessions, 0offers
+  Reset daily limits: cancelled 2 completed test bookings from today
+  Caregiver S1 flow started (PID: 28231)
+  Parent S1 flow started (PID: 28590)
+  ✓ PASS: Caregiver S1 flow
+  ✓ PASS: Parent S1 flow
+  ✓ PASS: S1 booking lifecycle (got: completed)
+  ✓ PASS: S1 session status (got: completed)
+
+══════════════════════════════════════════════════
+  PROXIMITY UAT E2E — RESULTS
+══════════════════════════════════════════════════
+  Scenario: --scenario=1
+  Failures: 0
+
+  OVERALL: PASS ✓

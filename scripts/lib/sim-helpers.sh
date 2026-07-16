@@ -175,3 +175,42 @@ sim_clear_location() {
   local udid="$1"
   xcrun simctl location "$udid" clear
 }
+
+# proximity_drift_distance <sessionId> <phase>
+# Reads BOTH parties' submitted proximity GPS from Redis (the same keys the backend's
+# submitProximityCheck writes: `proximity:<sessionId>:<phase>:<role>`, 5-min TTL) and prints
+# the party-to-party haversine distance in whole meters — the SAME value the backend returns in
+# its 400 `proximityFailed` response. Prints nothing (empty) until BOTH parties have submitted.
+#
+# WHY (2026-07-16): the DRIFT handoff FAIL is transient — the backend returns a 400 with
+# distanceMeters but does NOT persist a "failed" flag (start_proximity_passed stays NULL; a
+# distance is written only on PASS). So the orchestrator cannot poll the DB to confirm the drift
+# registered. Reading the two Redis submissions and recomputing the distance is functionally
+# identical to the backend's own computation, and lets Scenario 2 GATE the admin override on an
+# OBSERVED ~89 m drift (both parties submitted, > 50 m handoff threshold) rather than firing the
+# override on a bare timer before the parent's one-shot even resolved at DRIFT (the prior
+# "passed naturally" flake). Requires docker `bijoux-redis` up.
+proximity_drift_distance() {
+  local session_id="$1" phase="${2:-start}"
+  local cg_raw parent_raw
+  cg_raw=$(docker exec bijoux-redis redis-cli --no-raw GET "proximity:${session_id}:${phase}:caregiver" 2>/dev/null)
+  parent_raw=$(docker exec bijoux-redis redis-cli --no-raw GET "proximity:${session_id}:${phase}:parent" 2>/dev/null)
+  # redis-cli --no-raw wraps strings in quotes and escapes inner quotes; strip to plain JSON.
+  cg_raw=$(printf '%s' "$cg_raw" | sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/g')
+  parent_raw=$(printf '%s' "$parent_raw" | sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/g')
+  [[ -z "$cg_raw" || "$cg_raw" == "nil" || -z "$parent_raw" || "$parent_raw" == "nil" ]] && return 0
+  python3 -c "
+import json, math, sys
+try:
+    cg = json.loads('''$cg_raw''')
+    p  = json.loads('''$parent_raw''')
+except Exception:
+    sys.exit(0)
+R = 6371000.0
+la1, lo1 = math.radians(cg['latitude']), math.radians(cg['longitude'])
+la2, lo2 = math.radians(p['latitude']),  math.radians(p['longitude'])
+dla, dlo = la2 - la1, lo2 - lo1
+a = math.sin(dla/2)**2 + math.cos(la1)*math.cos(la2)*math.sin(dlo/2)**2
+print(round(R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))))
+" 2>/dev/null
+}
