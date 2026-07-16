@@ -1,0 +1,90 @@
+# jira: BA-302
+# uat: UAT-20.4 — Permission Denial (Caregiver, caregiver-only scenario)
+# Scenario: Fresh install, location denied at OS level (orchestrator does NOT pre-grant).
+#   The caregiver taps "Don't Allow" at the OS dialog, then tapping "I've Arrived" shows an
+#   INLINE location error (arrival-proximity-message: "Turn on location..."), NOT a full-screen
+#   crash. The orchestrator then grants location and the caregiver retries via "I've Arrived".
+# Pre: orchestrator runs sim_set_location NEAR but WITHHOLDS sim_grant_location for the caregiver.
+# There is no parent/proximity-permission-denial.yaml — the parent side uses proximity-happy-path.
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - cross-app
+  - proximity
+---
+# ═══ LOGIN ═══
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+- tapOn: "Get Started"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: "cg-maria@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Show password"
+- extendedWaitUntil:
+    visible:
+      id: "login-password-field"
+    timeout: 5000
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+- tapOn: "Hide password"
+- tapOn:
+    id: "login-submit-button"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible: "Home"
+
+# ═══ GO ONLINE ═══
+- tapOn:
+    text: ".*Go Online.*|.*Online.*"
+    optional: true
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR OFFER + ACCEPT ═══
+- extendedWaitUntil:
+    visible: "Accept"
+    timeout: 180000
+- tapOn: "Accept"
+- waitForAnimationToEnd
+
+# ═══ IOMW ═══
+- extendedWaitUntil:
+    visible: "I'm On My Way"
+    timeout: 15000
+- tapOn: "I'm On My Way"
+- waitForAnimationToEnd
+
+# ═══ ARRIVAL — OS location dialog appears (no pre-grant); DENY it ═══
+- extendedWaitUntil:
+    visible: "I've Arrived"
+    timeout: 30000
+# The app requests location on appear; deny at the OS dialog if it surfaces.
+- tapOn:
+    text: "Don't Allow"
+    optional: true
+- tapOn: "I've Arrived"
+- waitForAnimationToEnd
+# Expect an INLINE location/proximity error, NOT a full-screen crash.
+- extendedWaitUntil:
+    visible:
+      text: ".*move closer.*|.*location.*|.*enable.*|.*Turn on.*|.*m from.*"
+    timeout: 10000
+- takeScreenshot: results/cross-app/proximity-cg-permission-denied
+# Assert we did NOT fall into a full-screen error state.
+- assertNotVisible:
+    text: "Something went wrong"
+
+# ═══ RETRY — orchestrator grants location after the denial screenshot, then we retry ═══
+- extendedWaitUntil:
+    visible:
+      text: ".*Try Again.*|.*Retry.*|.*I've Arrived.*"
+    timeout: 60000
+- tapOn:
+    text: ".*Try Again.*|.*Retry.*|.*I've Arrived.*"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-cg-permission-retry

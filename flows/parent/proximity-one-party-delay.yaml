@@ -1,0 +1,129 @@
+# jira: BA-301
+# uat: UAT-20.3 — One-Party Delayed (Parent — submits second)
+# Scenario: Both sims NEAR. Caregiver submits proximity-check first (gets 'waiting').
+#   The parent launches ~35s later; when it submits, both resolve to 'passed' immediately
+#   (parent-proximity-waiting-label should not appear, or clears within a couple seconds).
+# The 35s delay is implemented by the orchestrator (sleep 35), NOT in this flow.
+# Pre: orchestrator runs sim_set_location NEAR + sim_grant_location.
+appId: polygentic.bijouxParentApp
+tags:
+  - cross-app
+  - proximity
+---
+# ═══ LOGIN ═══
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow While Using App"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "onboarding-get-started-button"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: "parent-sarah@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Enter your password"
+- inputText: "Test1234!"
+- tapOn: "Welcome Back"
+- tapOn:
+    id: "login-submit-button"
+- waitForAnimationToEnd
+- assertVisible:
+    id: "home-greeting-label"
+
+# ═══ CREATE BOOKING ═══
+- tapOn:
+    id: "home-request-now-card"
+    optional: true
+- tapOn:
+    text: "Request Now"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Duration"
+    optional: true
+- tapOn:
+    text: ".*Lily.*|.*Max.*"
+    optional: true
+- swipe:
+    direction: UP
+    duration: 400
+- waitForAnimationToEnd
+- tapOn:
+    id: "quick-booking-submit-button"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Capture"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "quick-booking-submit-button"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-p-delay-matching-started
+
+# ═══ WAIT FOR CAREGIVER ARRIVAL ═══
+- extendedWaitUntil:
+    visible: ".*Caregiver Has Arrived.*|.*Start Identity Verification.*"
+    timeout: 240000
+- takeScreenshot: results/cross-app/proximity-p-delay-caregiver-arrived
+
+# ═══ VERIFY START — parent is SECOND party, resolves immediately ═══
+- tapOn: "Start Identity Verification"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 10000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+# Parent submits second → proximity-check returns 'passed' immediately.
+# parent-proximity-waiting-label should NOT appear (or clears within 1-2s).
+- extendedWaitUntil:
+    notVisible:
+      id: "parent-proximity-waiting-label"
+    timeout: 15000
+
+# ═══ SESSION ACTIVE ═══
+- extendedWaitUntil:
+    visible: ".*In Progress.*|.*End Job.*"
+    timeout: 120000
+- tapOn:
+    id: "home-active-session-card"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-p-delay-session-active
+- extendedWaitUntil:
+    visible:
+      id: "active-session-end-button"
+    timeout: 30000
+
+# ═══ END JOB ═══
+- tapOn:
+    id: "active-session-end-button"
+- waitForAnimationToEnd
+- tapOn:
+    id: "end-job-confirm-button"
+- waitForAnimationToEnd
+
+# ═══ VERIFY END ═══
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 30000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+
+# ═══ SESSION COMPLETE ═══
+- extendedWaitUntil:
+    visible: ".*Session Complete.*|.*How was your experience.*"
+    timeout: 120000
+- takeScreenshot: results/cross-app/proximity-p-delay-session-complete
+- tapOn:
+    id: "summary-rating-label"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "summary-done-button"
+- waitForAnimationToEnd
