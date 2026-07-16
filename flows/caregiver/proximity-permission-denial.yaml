@@ -67,6 +67,12 @@ tags:
 - tapOn:
     text: "Don't Allow"
     optional: true
+# Scroll the below-the-fold "I've Arrived" button above the tab bar before tapping, or
+# Maestro taps its off-screen coordinates and mis-navigates to Activity (see happy-path).
+- swipe:
+    direction: UP
+    duration: 500
+- waitForAnimationToEnd
 - tapOn: "I've Arrived"
 - waitForAnimationToEnd
 # Expect an INLINE location/proximity error, NOT a full-screen crash.
@@ -84,6 +90,11 @@ tags:
     visible:
       text: ".*Try Again.*|.*Retry.*|.*I've Arrived.*"
     timeout: 60000
+# Keep the retry button above the tab bar before tapping (same below-the-fold issue).
+- swipe:
+    direction: UP
+    duration: 500
+- waitForAnimationToEnd
 - tapOn:
     text: ".*Try Again.*|.*Retry.*|.*I've Arrived.*"
 - waitForAnimationToEnd

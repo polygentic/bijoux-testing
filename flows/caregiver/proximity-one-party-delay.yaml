@@ -65,6 +65,12 @@ tags:
 - extendedWaitUntil:
     visible: "I've Arrived"
     timeout: 30000
+# Scroll the below-the-fold "I've Arrived" button above the tab bar before tapping, or
+# Maestro taps its off-screen coordinates and mis-navigates to Activity (see happy-path).
+- swipe:
+    direction: UP
+    duration: 500
+- waitForAnimationToEnd
 - tapOn: "I've Arrived"
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/proximity-cg-delay-arrived

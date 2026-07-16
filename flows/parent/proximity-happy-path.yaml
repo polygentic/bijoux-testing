@@ -102,9 +102,18 @@ tags:
 - extendedWaitUntil:
     visible: ".*In Progress.*|.*End Job.*"
     timeout: 120000
+# The active-session-end-button lives on the ActiveSessionView (a separate screen), not on
+# the Home card. Reaching it: tap the compact card to EXPAND it (reveals "View Full Session"),
+# then tap "View Full Session" to navigate. The old flow only toggled the card and never
+# navigated, so the end button was never present. Tap the card's In-Progress row text (a
+# reliable hit target on the card's tappable compact row) to expand it.
 - tapOn:
-    id: "home-active-session-card"
-    optional: true
+    text: ".*In Progress.*"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "View Full Session"
+    timeout: 10000
+- tapOn: "View Full Session"
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/proximity-p-session-active
 - extendedWaitUntil:
