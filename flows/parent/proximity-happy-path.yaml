@@ -31,6 +31,13 @@ tags:
 - tapOn:
     id: "login-submit-button"
 - waitForAnimationToEnd
+# iOS may surface a "Save Password?" system sheet after a credential submit. It
+# overlays the booking form (covering the Duration selector and pushing
+# quick-booking-submit-button below the fold), so dismiss it before booking.
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
 - assertVisible:
     id: "home-greeting-label"
 - takeScreenshot: results/cross-app/proximity-p-logged-in
@@ -43,6 +50,10 @@ tags:
     text: "Request Now"
     optional: true
 - waitForAnimationToEnd
+# Re-dismiss the Save Password sheet if it (re)appears over the booking form.
+- tapOn:
+    text: "Not Now"
+    optional: true
 - tapOn:
     text: "Duration"
     optional: true
