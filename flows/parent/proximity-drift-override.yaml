@@ -1,0 +1,132 @@
+# jira: BA-300
+# uat: UAT-20.2 — Drift → Admin Override → Retry (Parent)
+# Scenario: Parent sim at DRIFT (~89m from caregiver). Handoff start proximity FAILS.
+#   The orchestrator calls the admin session proximity-override API, then the app re-enables
+#   the verify flow (parent-proximity-waiting-label clears).
+# Pre: orchestrator runs sim_set_location (parent DRIFT) + sim_grant_location.
+appId: polygentic.bijouxParentApp
+tags:
+  - cross-app
+  - proximity
+---
+# ═══ LOGIN ═══
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow While Using App"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "onboarding-get-started-button"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: "parent-sarah@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Enter your password"
+- inputText: "Test1234!"
+- tapOn: "Welcome Back"
+- tapOn:
+    id: "login-submit-button"
+- waitForAnimationToEnd
+- assertVisible:
+    id: "home-greeting-label"
+
+# ═══ CREATE BOOKING ═══
+- tapOn:
+    id: "home-request-now-card"
+    optional: true
+- tapOn:
+    text: "Request Now"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Duration"
+    optional: true
+- tapOn:
+    text: ".*Lily.*|.*Max.*"
+    optional: true
+- swipe:
+    direction: UP
+    duration: 400
+- waitForAnimationToEnd
+- tapOn:
+    id: "quick-booking-submit-button"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Capture"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "quick-booking-submit-button"
+    optional: true
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR CAREGIVER ARRIVAL ═══
+- extendedWaitUntil:
+    visible: ".*Caregiver Has Arrived.*|.*Start Identity Verification.*"
+    timeout: 240000
+- takeScreenshot: results/cross-app/proximity-p-drift-caregiver-arrived
+
+# ═══ VERIFY START — proximity FAILS (parent at DRIFT) ═══
+- tapOn: "Start Identity Verification"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 10000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+# Parent is at DRIFT → proximity-check returns failed/waiting; the app shows the waiting label.
+- extendedWaitUntil:
+    visible:
+      id: "parent-proximity-waiting-label"
+    timeout: 30000
+- takeScreenshot: results/cross-app/proximity-p-drift-fail
+# The orchestrator calls the admin proximity-override API here; the app then re-enables verify.
+- extendedWaitUntil:
+    notVisible:
+      id: "parent-proximity-waiting-label"
+    timeout: 120000
+
+# ═══ SESSION ACTIVE (after override clears the block) ═══
+- extendedWaitUntil:
+    visible: ".*In Progress.*|.*End Job.*"
+    timeout: 120000
+- tapOn:
+    id: "home-active-session-card"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-p-drift-session-active
+- extendedWaitUntil:
+    visible:
+      id: "active-session-end-button"
+    timeout: 30000
+
+# ═══ END JOB ═══
+- tapOn:
+    id: "active-session-end-button"
+- waitForAnimationToEnd
+- tapOn:
+    id: "end-job-confirm-button"
+- waitForAnimationToEnd
+
+# ═══ VERIFY END ═══
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 30000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+
+# ═══ SESSION COMPLETE ═══
+- extendedWaitUntil:
+    visible: ".*Session Complete.*|.*How was your experience.*"
+    timeout: 120000
+- takeScreenshot: results/cross-app/proximity-p-drift-session-complete
+- tapOn:
+    id: "summary-rating-label"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "summary-done-button"
+- waitForAnimationToEnd

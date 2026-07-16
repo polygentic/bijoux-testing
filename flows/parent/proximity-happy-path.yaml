@@ -1,0 +1,132 @@
+# jira: BA-299
+# uat: UAT-20.1 — Proximity Happy Path (Parent)
+# Scenario: Both sims NEAR, PROXIMITY_CHECK_ENABLED=true, full lifecycle.
+# Pre: orchestrator runs sim_set_location NEAR + sim_grant_location before/after launch.
+# Mirrors parent/login-book-session-end.yaml; the parent-proximity-waiting-label wait is a
+# defensive notVisible check (clears once both parties' proximity resolves).
+appId: polygentic.bijouxParentApp
+tags:
+  - cross-app
+  - proximity
+---
+# ═══ LOGIN ═══
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+# Dismiss any OS location-permission dialog (fallback if sim_grant_location didn't pre-grant)
+- tapOn:
+    text: "Allow While Using App"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "onboarding-get-started-button"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: "parent-sarah@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Enter your password"
+- inputText: "Test1234!"
+- tapOn: "Welcome Back"
+- tapOn:
+    id: "login-submit-button"
+- waitForAnimationToEnd
+- assertVisible:
+    id: "home-greeting-label"
+- takeScreenshot: results/cross-app/proximity-p-logged-in
+
+# ═══ CREATE BOOKING ═══
+- tapOn:
+    id: "home-request-now-card"
+    optional: true
+- tapOn:
+    text: "Request Now"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Duration"
+    optional: true
+- tapOn:
+    text: ".*Lily.*|.*Max.*"
+    optional: true
+- swipe:
+    direction: UP
+    duration: 400
+- waitForAnimationToEnd
+- tapOn:
+    id: "quick-booking-submit-button"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Capture"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "quick-booking-submit-button"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-p-matching-started
+
+# ═══ WAIT FOR CAREGIVER ARRIVAL (app polls automatically) ═══
+- extendedWaitUntil:
+    visible: ".*Caregiver Has Arrived.*|.*Start Identity Verification.*"
+    timeout: 240000
+- takeScreenshot: results/cross-app/proximity-p-caregiver-arrived
+
+# ═══ VERIFY START (identity verification — mock Veriff) ═══
+- tapOn: "Start Identity Verification"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 10000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+# If the parent submits proximity first, the app shows parent-proximity-waiting-label while
+# polling for the caregiver's submission. Both NEAR → resolves quickly; 60s is generous.
+- extendedWaitUntil:
+    notVisible:
+      id: "parent-proximity-waiting-label"
+    timeout: 60000
+
+# ═══ WAIT FOR SESSION ACTIVE (caregiver must also verify) ═══
+- extendedWaitUntil:
+    visible: ".*In Progress.*|.*End Job.*"
+    timeout: 120000
+- tapOn:
+    id: "home-active-session-card"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-p-session-active
+- extendedWaitUntil:
+    visible:
+      id: "active-session-end-button"
+    timeout: 30000
+
+# ═══ END JOB ═══
+- tapOn:
+    id: "active-session-end-button"
+- waitForAnimationToEnd
+- tapOn:
+    id: "end-job-confirm-button"
+- waitForAnimationToEnd
+
+# ═══ VERIFY END (identity verification — mock Veriff) ═══
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 30000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR SESSION COMPLETE ═══
+- extendedWaitUntil:
+    visible: ".*Session Complete.*|.*How was your experience.*"
+    timeout: 120000
+- takeScreenshot: results/cross-app/proximity-p-session-complete
+
+# ═══ RATE ═══
+- tapOn:
+    id: "summary-rating-label"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "summary-done-button"
+- waitForAnimationToEnd

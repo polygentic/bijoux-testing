@@ -1,0 +1,139 @@
+# jira: BA-300
+# uat: UAT-20.2 — Drift → Admin Override → Retry (Caregiver)
+# Scenario: Caregiver sim at NEAR (arrival passes), parent sim at DRIFT (~89m → handoff fails).
+#   The caregiver reaches the silent proximity gate and shows proximity-waiting-label; the
+#   orchestrator then calls the admin session proximity-override API, which unblocks the gate.
+# Pre: orchestrator runs sim_set_location (CG NEAR) + sim_grant_location.
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - cross-app
+  - proximity
+---
+# ═══ LOGIN ═══
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow While Using App"
+    optional: true
+- waitForAnimationToEnd
+- tapOn: "Get Started"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: "cg-maria@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Show password"
+- extendedWaitUntil:
+    visible:
+      id: "login-password-field"
+    timeout: 5000
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+- tapOn: "Hide password"
+- tapOn:
+    id: "login-submit-button"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible: "Home"
+
+# ═══ GO ONLINE ═══
+- tapOn:
+    text: ".*Go Online.*|.*Online.*"
+    optional: true
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR OFFER + ACCEPT ═══
+- extendedWaitUntil:
+    visible: "Accept"
+    timeout: 180000
+- tapOn: "Accept"
+- waitForAnimationToEnd
+
+# ═══ IOMW ═══
+- extendedWaitUntil:
+    visible: "I'm On My Way"
+    timeout: 15000
+- tapOn: "I'm On My Way"
+- waitForAnimationToEnd
+
+# ═══ ARRIVAL (CG at NEAR → arrival passes) ═══
+- extendedWaitUntil:
+    visible: "I've Arrived"
+    timeout: 30000
+- tapOn: "I've Arrived"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-cg-drift-arrived
+
+# ═══ VERIFY START — handoff proximity BLOCKED (parent at DRIFT) ═══
+- extendedWaitUntil:
+    visible:
+      id: "arrived-verify-button"
+    timeout: 30000
+- swipe:
+    direction: UP
+    duration: 400
+- waitForAnimationToEnd
+- tapOn:
+    id: "arrived-verify-button"
+- waitForAnimationToEnd
+# Parent is at DRIFT → the silent gate stays waiting (or shows a move-closer message).
+- extendedWaitUntil:
+    visible:
+      id: "proximity-waiting-label"
+    timeout: 30000
+- takeScreenshot: results/cross-app/proximity-cg-drift-waiting
+# The orchestrator now calls the admin session proximity-override API. Once the override lands,
+# the gate opens and the capture control becomes available.
+- extendedWaitUntil:
+    visible:
+      id: "verification-capture-button"
+    timeout: 120000
+- tapOn:
+    id: "verification-capture-button"
+- waitForAnimationToEnd
+
+# ═══ SESSION ACTIVE ═══
+- extendedWaitUntil:
+    visible:
+      id: "home-active-job-card"
+    timeout: 120000
+- tapOn:
+    id: "home-active-job-card"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-cg-drift-session-active
+
+# ═══ END JOB ═══
+- extendedWaitUntil:
+    visible:
+      id: "in-progress-end-button"
+    timeout: 30000
+- tapOn:
+    id: "in-progress-end-button"
+- waitForAnimationToEnd
+- tapOn: "Confirm"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "verification-capture-button"
+    timeout: 30000
+- tapOn:
+    id: "verification-capture-button"
+- waitForAnimationToEnd
+
+# ═══ SESSION COMPLETE ═══
+- extendedWaitUntil:
+    visible: ".*Session Complete.*|.*Take Home.*|.*Well done.*"
+    timeout: 120000
+- takeScreenshot: results/cross-app/proximity-cg-drift-session-complete
+- tapOn:
+    text: "Done"
+    optional: true
+- tapOn:
+    text: ".*Take Home.*|.*Dismiss.*"
+    optional: true
+- waitForAnimationToEnd
