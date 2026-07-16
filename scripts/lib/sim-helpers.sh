@@ -17,22 +17,32 @@
 #   0.0008° × 111,000 ≈  89 m  (50 m < 89 m < 100 m) → DRIFT passes arrival, fails handoff
 
 # ─── Coordinate constants (derived from environment.sh, not hardcoded) ────────
+#
+# ANCHORED ON BOOKING_LAT/LNG (2026-07-15): the backend proximity checks compare the
+# caregiver's/parent's GPS against the BOOKING's coordinate, which is the parent app's
+# CLIENT-GEOCODE of "100 Congress Ave" = (30.2639922, -97.7447808), NOT the profile's stored
+# TEST_LAT/LNG (391 m away). Anchoring these on TEST_LAT/LNG put every party ~391 m from the
+# booking — beyond the 100 m arrival threshold — so UI arrival always FAILED proximity and
+# arrived_at stayed NULL. Anchoring on BOOKING_LAT/LNG puts NEAR at 0 m from the real anchor.
+# See config/environment.sh BOOKING_LAT/LNG for the full rationale.
+PROX_ANCHOR_LAT="${BOOKING_LAT:-$TEST_LAT}"
+PROX_ANCHOR_LNG="${BOOKING_LNG:-$TEST_LNG}"
 
 # NEAR: both parties at the booking address (0 m apart, 0 m from address)
-SIM_LAT_NEAR="${TEST_LAT}"
-SIM_LNG_NEAR="${TEST_LNG}"
+SIM_LAT_NEAR="${PROX_ANCHOR_LAT}"
+SIM_LNG_NEAR="${PROX_ANCHOR_LNG}"
 
 # FAR: caregiver ~311 m north of the address (> 100 m arrival threshold)
-SIM_LAT_FAR=$(python3 -c "print(round(${TEST_LAT} + 0.0028, 4))")
-SIM_LNG_FAR="${TEST_LNG}"
+SIM_LAT_FAR=$(python3 -c "print(round(${PROX_ANCHOR_LAT} + 0.0028, 7))")
+SIM_LNG_FAR="${PROX_ANCHOR_LNG}"
 
 # DRIFT: parent ~89 m north (> 50 m handoff threshold, < 100 m arrival threshold)
-SIM_LAT_DRIFT_PARENT=$(python3 -c "print(round(${TEST_LAT} + 0.0008, 4))")
-SIM_LNG_DRIFT_PARENT="${TEST_LNG}"
+SIM_LAT_DRIFT_PARENT=$(python3 -c "print(round(${PROX_ANCHOR_LAT} + 0.0008, 7))")
+SIM_LNG_DRIFT_PARENT="${PROX_ANCHOR_LNG}"
 
 # Caregiver stays at NEAR in the DRIFT scenario (arrival passes, handoff fails)
-SIM_LAT_DRIFT_CG="${TEST_LAT}"
-SIM_LNG_DRIFT_CG="${TEST_LNG}"
+SIM_LAT_DRIFT_CG="${PROX_ANCHOR_LAT}"
+SIM_LNG_DRIFT_CG="${PROX_ANCHOR_LNG}"
 
 export SIM_LAT_NEAR SIM_LNG_NEAR SIM_LAT_FAR SIM_LNG_FAR
 export SIM_LAT_DRIFT_PARENT SIM_LNG_DRIFT_PARENT SIM_LAT_DRIFT_CG SIM_LNG_DRIFT_CG
@@ -75,6 +85,37 @@ sim_start_location() {
   # speed 0.1 m/s over ~span m ⇒ the interpolation runs ~span*10 s (≈120 s for 12 m),
   # emitting a fix every 1 s the entire time. Callers refresh via periodic_start_location.
   xcrun simctl location "$udid" start --speed=0.1 --interval=1 "${lat},${lng}" "${lat2},${lng}"
+}
+
+# sim_tight_refresh <UDID> <lat> <lng> [interval_s] [rounds]
+# Background loop that re-issues `simctl location set` at a TIGHT interval (default 2s)
+# for [rounds] iterations (default 90 ≈ 3 min). Runs detached; caller does not wait.
+#
+# WHY (2026-07-15, evidence-based): the cached-fallback fix
+# (caregiver fix/current-fix-cached-fallback, parent fix/get-current-fix-cached-fallback)
+# resolves a silent one-shot from `CLLocationManager.location` only when that cache is
+# FRESH (age <= 60s). Empirically on this simulator (iOS 26.5), `simctl location set` DOES
+# reach the app's CLLocationManager (proven: a matching-location report picks up a new `set`
+# coord within one cadence), but the `simctl location start` continuous feed's delegate
+# callbacks can lapse between the ~90s `periodic_start_location` restarts, leaving the
+# manager's `.location.timestamp` stale enough for the fallback's 60s window to reject it —
+# so `confirmArrival()`/handoff `currentFix()` throws `noFix` and never POSTs `/arrived`.
+# A 2s `set` loop keeps `.location.timestamp` continuously < ~2s old, so the one-shot's
+# delegate fires (or the cached fallback accepts the fresh cache). This does NOT weaken any
+# assertion — it only keeps the injected GPS fresh, which a real device at the address would
+# have. Anchored EXACTLY at (lat,lng) so proximity distance stays 0 m.
+sim_tight_refresh() {
+  # rounds default 210 × 2s ≈ 7 min — comfortably covers the whole
+  # login→online→offer→accept→IOMW→arrival→handoff→session window of one scenario.
+  local udid="$1" lat="$2" lng="$3" interval="${4:-2}" rounds="${5:-210}"
+  (
+    local i=0
+    while [[ $i -lt $rounds ]]; do
+      xcrun simctl location "$udid" set "${lat},${lng}" 2>/dev/null || true
+      sleep "$interval"
+      i=$((i + 1))
+    done
+  ) &
 }
 
 # sim_grant_location <UDID> <bundleId>
