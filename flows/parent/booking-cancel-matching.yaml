@@ -39,7 +39,6 @@ appId: polygentic.bijouxParentApp
 # Select a child (required for booking)
 - tapOn: ".*Lily.*"
 
-- scroll
 
 # Submit booking request — first tap triggers IDV re-verification
 - tapOn: "Request Caregiver"
@@ -52,7 +51,6 @@ appId: polygentic.bijouxParentApp
 - waitForAnimationToEnd
 
 # Re-submit after re-verification completes
-- scroll
 
 - tapOn: "Request Caregiver"
 

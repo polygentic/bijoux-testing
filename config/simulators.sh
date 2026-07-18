@@ -87,6 +87,40 @@ sys.exit(1)
         care_udid=$(xcrun simctl create "$CAREGIVER_SIM_NAME" "$device_type" "$runtime")
         echo "Created '$CAREGIVER_SIM_NAME': $care_udid"
     fi
+
+    # Create second parent simulator
+    if xcrun simctl list devices -j | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for devices in data['devices'].values():
+    for d in devices:
+        if d['name'] == '$PARENT_SIM_NAME_2':
+            sys.exit(0)
+sys.exit(1)
+" 2>/dev/null; then
+        echo "Simulator '$PARENT_SIM_NAME_2' already exists"
+    else
+        local parent_udid_2
+        parent_udid_2=$(xcrun simctl create "$PARENT_SIM_NAME_2" "$device_type" "$runtime")
+        echo "Created '$PARENT_SIM_NAME_2': $parent_udid_2"
+    fi
+
+    # Create second caregiver simulator
+    if xcrun simctl list devices -j | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for devices in data['devices'].values():
+    for d in devices:
+        if d['name'] == '$CAREGIVER_SIM_NAME_2':
+            sys.exit(0)
+sys.exit(1)
+" 2>/dev/null; then
+        echo "Simulator '$CAREGIVER_SIM_NAME_2' already exists"
+    else
+        local care_udid_2
+        care_udid_2=$(xcrun simctl create "$CAREGIVER_SIM_NAME_2" "$device_type" "$runtime")
+        echo "Created '$CAREGIVER_SIM_NAME_2': $care_udid_2"
+    fi
 }
 
 boot_simulators() {
@@ -105,6 +139,16 @@ boot_simulators() {
         echo "ERROR: $CAREGIVER_SIM_NAME not found. Run: $0 create" >&2
         exit 1
     fi
+    # Boot second pair (optional — only if they exist)
+    source "$SCRIPT_DIR/environment.sh"
+    if [[ -n "${PARENT_UDID_2:-}" ]]; then
+        xcrun simctl boot "$PARENT_UDID_2" 2>/dev/null || true
+        echo "Booted $PARENT_SIM_NAME_2 ($PARENT_UDID_2)"
+    fi
+    if [[ -n "${CAREGIVER_UDID_2:-}" ]]; then
+        xcrun simctl boot "$CAREGIVER_UDID_2" 2>/dev/null || true
+        echo "Booted $CAREGIVER_SIM_NAME_2 ($CAREGIVER_UDID_2)"
+    fi
     open -a Simulator
 }
 
@@ -112,6 +156,8 @@ shutdown_simulators() {
     source "$SCRIPT_DIR/environment.sh"
     [[ -n "$PARENT_UDID" ]] && xcrun simctl shutdown "$PARENT_UDID" 2>/dev/null || true
     [[ -n "$CAREGIVER_UDID" ]] && xcrun simctl shutdown "$CAREGIVER_UDID" 2>/dev/null || true
+    [[ -n "${PARENT_UDID_2:-}" ]] && xcrun simctl shutdown "$PARENT_UDID_2" 2>/dev/null || true
+    [[ -n "${CAREGIVER_UDID_2:-}" ]] && xcrun simctl shutdown "$CAREGIVER_UDID_2" 2>/dev/null || true
     echo "Simulators shut down"
 }
 
@@ -119,6 +165,8 @@ delete_simulators() {
     source "$SCRIPT_DIR/environment.sh"
     [[ -n "$PARENT_UDID" ]] && xcrun simctl delete "$PARENT_UDID" 2>/dev/null || true
     [[ -n "$CAREGIVER_UDID" ]] && xcrun simctl delete "$CAREGIVER_UDID" 2>/dev/null || true
+    [[ -n "${PARENT_UDID_2:-}" ]] && xcrun simctl delete "$PARENT_UDID_2" 2>/dev/null || true
+    [[ -n "${CAREGIVER_UDID_2:-}" ]] && xcrun simctl delete "$CAREGIVER_UDID_2" 2>/dev/null || true
     echo "Simulators deleted"
 }
 

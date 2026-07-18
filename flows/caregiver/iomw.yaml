@@ -1,0 +1,14 @@
+# uat: SUB — Caregiver I'm On My Way
+# NOTE: Sub-flow. Caregiver must have just accepted an offer.
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - sub-flow
+---
+- launchApp
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "I'm On My Way"
+    timeout: 15000
+- tapOn: "I'm On My Way"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/caregiver-iomw

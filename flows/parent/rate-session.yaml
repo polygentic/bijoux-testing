@@ -1,0 +1,22 @@
+# uat: SUB — Parent Rate Session
+# NOTE: Sub-flow. Parent must be on session summary/completed screen.
+appId: polygentic.bijouxParentApp
+tags:
+  - sub-flow
+---
+- launchApp
+- waitForAnimationToEnd
+# Wait for session summary / rating prompt
+- extendedWaitUntil:
+    visible: ".*Rate.*|.*Session Complete.*|.*How was.*"
+    timeout: 30000
+    optional: true
+# Tap 5 stars (or last star)
+- tapOn:
+    text: "5"
+    optional: true
+- tapOn:
+    text: ".*Submit.*|.*Done.*|.*Rate.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/parent-rated-session

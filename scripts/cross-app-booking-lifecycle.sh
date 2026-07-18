@@ -197,30 +197,11 @@ fi
 
 step "Caregiver: Accept offer via Maestro"
 
-# The accept-offer flow uses extendedWaitUntil to wait for the offer to appear
 if maestro --udid="$CAREGIVER_UDID" test "$ROOT_DIR/flows/caregiver/accept-offer.yaml" 2>&1; then
   pass "Caregiver offer acceptance completed"
 else
-  fail "Caregiver offer acceptance failed"
-  echo "  NOTE: Offer may not have been delivered. Check matching engine status."
-  echo "  Attempting API fallback..."
-
-  # Fallback: accept via API
-  MATCH_REQUEST=$(curl -s -H "Authorization: Bearer ${PARENT_TOKEN}" \
-    "${BACKEND_URL}/bookings/${BOOKING_ID}" \
-    | python3 -c "
-import sys, json
-data = json.load(sys.stdin).get('data', json.load(open('/dev/stdin')))
-mr = data.get('matchRequest', {})
-print(mr.get('id', ''))" 2>/dev/null)
-
-  if [[ -n "$MATCH_REQUEST" ]]; then
-    curl -s -X POST "${BACKEND_URL}/matching/accept" \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer ${CAREGIVER_TOKEN}" \
-      -d "{\"matchRequestId\": \"${MATCH_REQUEST}\"}" > /dev/null 2>&1 || true
-    echo "  API offer acceptance attempted"
-  fi
+  fail "Caregiver offer acceptance failed — offer may not have been delivered"
+  exit 1
 fi
 
 # ─────────────────────────────────────────────────

@@ -20,6 +20,8 @@ export CAREGIVER_SCHEME="bijouxCaregiverApp"
 # --- Simulator Names ---
 export PARENT_SIM_NAME="bijoux-parent"
 export CAREGIVER_SIM_NAME="bijoux-care"
+export PARENT_SIM_NAME_2="bijoux-parent-2"
+export CAREGIVER_SIM_NAME_2="bijoux-care-2"
 
 # --- Derived Data ---
 export PARENT_DERIVED_DATA="/tmp/bijoux-build-parent"
@@ -30,6 +32,23 @@ export BACKEND_URL="http://localhost:3000/api/v1"
 
 # --- Admin Portal ---
 export ADMIN_URL="http://localhost:3001"
+
+# --- Test Account Credentials ---
+export PARENT_EMAIL="parent-sarah@test.bijoux.app"
+export PARENT_PASSWORD="Test1234!"
+export PARENT_2_EMAIL="parent-james@test.bijoux.app"
+export PARENT_2_PASSWORD="Test1234!"
+export CAREGIVER_EMAIL="cg-emma@test.bijoux.app"
+export CAREGIVER_PASSWORD="Test1234!"
+export CAREGIVER_ONLINE_EMAIL="cg-maria@test.bijoux.app"
+export CAREGIVER_ONLINE_PASSWORD="Test1234!"
+export ADMIN_EMAIL="admin@bijoux.app"
+export ADMIN_PASSWORD="Test1234!"
+
+# --- Test Data ---
+export TEST_ADDRESS="123 Main St, Austin, TX"
+export TEST_LAT="30.2672"
+export TEST_LNG="-97.7431"
 
 # --- Java (required by Maestro) ---
 if [[ -d "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" ]]; then
@@ -71,3 +90,6 @@ for runtime, devices in data.get('devices', {}).items():
 PARENT_UDID=$(_resolve_udid "$PARENT_SIM_NAME")
 CAREGIVER_UDID=$(_resolve_udid "$CAREGIVER_SIM_NAME")
 export PARENT_UDID CAREGIVER_UDID
+PARENT_UDID_2=$(_resolve_udid "$PARENT_SIM_NAME_2")
+CAREGIVER_UDID_2=$(_resolve_udid "$CAREGIVER_SIM_NAME_2")
+export PARENT_UDID_2 CAREGIVER_UDID_2

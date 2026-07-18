@@ -49,20 +49,26 @@ tags:
 
 - takeScreenshot: results/cross-app/parent-booking-form
 
-# Fill in address if field is empty
+# Dismiss any keyboard/autocomplete overlay
 - tapOn:
-    text: "Enter address"
+    text: "Duration"
     optional: true
-- inputText: "123 Main St, Austin, TX"
-- scroll
 
 # Select first child
 - tapOn:
     text: ".*Lily.*|.*Max.*"
     optional: true
 
+# Swipe up to reveal submit button (bare scroll crashes XCTest on iOS 26.5)
+- swipe:
+    direction: UP
+    duration: 400
+
+- waitForAnimationToEnd
+
 # Submit booking
-- tapOn: "Request Caregiver"
+- tapOn:
+    id: "quick-booking-submit-button"
 - waitForAnimationToEnd
 
 # Handle stubbed identity verification (if shown)
@@ -73,7 +79,7 @@ tags:
 
 # If verification sent us back to booking form, submit again
 - tapOn:
-    text: "Request Caregiver"
+    id: "quick-booking-submit-button"
     optional: true
 - waitForAnimationToEnd
 

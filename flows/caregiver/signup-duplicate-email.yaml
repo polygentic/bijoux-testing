@@ -38,13 +38,29 @@ appId: polygentic.bijouxCaregiverApp
 - waitForAnimationToEnd
 
 # --- Step 3: Password ---
-- tapOn: "Create a password"
+# Toggle password to plain text mode via eye icon
+# (Workaround: Maestro XCTest driver cannot input into SwiftUI SecureField on iOS 26.5)
+- tapOn:
+    text: "Show password"
+    index: 0
+- tapOn:
+    id: "signup-password-field"
 - inputText: "Test1234!"
+- tapOn:
+    text: "Hide password"
+    index: 0
 
-- tapOn: "Re-enter your password"
+# Toggle confirm password to plain text mode
+- tapOn:
+    text: "Show password"
+    index: 1
+- tapOn:
+    id: "signup-confirm-password-field"
 - inputText: "Test1234!"
+- tapOn:
+    text: "Hide password"
+    index: 0
 
-- scroll
 
 - tapOn:
     id: "signup-continue-button"

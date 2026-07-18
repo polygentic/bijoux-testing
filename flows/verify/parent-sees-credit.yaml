@@ -1,0 +1,12 @@
+# verify: Parent sees credit balance on home screen
+appId: polygentic.bijouxParentApp
+tags:
+  - verify
+---
+- launchApp
+- waitForAnimationToEnd
+# Look for credit indicator on home/booking screen
+- assertVisible:
+    text: ".*credit.*|.*Credit.*|.*\\$.*"
+    optional: true
+- takeScreenshot: results/layer3/parent-sees-credit

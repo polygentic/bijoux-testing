@@ -6,14 +6,9 @@ tags:
   - sub-flow
 ---
 # Wait for session end confirmation prompt
-- assertVisible:
-    text: "Session Complete"
+- extendedWaitUntil:
+    visible: ".*Session Complete.*|.*Rate.*"
     timeout: 30000
-    optional: true
-- assertVisible:
-    text: "Rate"
-    timeout: 15000
-    optional: true
 # Rate the session if prompted
 - tapOn:
     text: "5"

@@ -4,17 +4,21 @@
 appId: polygentic.bijouxCaregiverApp
 ---
 # End the active session
-- tapOn: "End Session"
-  optional: true
-- tapOn: "Complete Session"
-  optional: true
+- tapOn:
+    text: "End Session"
+    optional: true
+- tapOn:
+    text: "Complete Session"
+    optional: true
 - waitForAnimationToEnd
 # Confirm end session
-- tapOn: "Confirm"
-  optional: true
+- tapOn:
+    text: "Confirm"
+    optional: true
 - waitForAnimationToEnd
 # Veriff end verification (mocked)
-- tapOn: "Verify"
-  optional: true
+- tapOn:
+    text: "Verify"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: results/cross-app/caregiver-session-ended

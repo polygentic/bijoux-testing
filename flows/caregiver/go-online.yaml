@@ -1,0 +1,13 @@
+# uat: SUB — Caregiver Go Online
+# NOTE: Sub-flow. Caregiver must already be logged in on home screen.
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - sub-flow
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    text: ".*Go Online.*|.*Online.*"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/caregiver-went-online

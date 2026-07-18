@@ -20,7 +20,6 @@ appId: polygentic.bijouxCaregiverApp
 - inputText: "cg-maria@test.bijoux.app"
 
 # Dismiss keyboard
-- scroll
 
 # Tap on Welcome Back to ensure focus is off email
 - tapOn: "Welcome Back"
@@ -33,8 +32,10 @@ appId: polygentic.bijouxCaregiverApp
     id: "login-password-field"
 - inputText: "Test1234!"
 
+# Toggle back to secure mode
+- tapOn: "Hide password"
+
 # Dismiss keyboard
-- scroll
 
 # Tap login submit button
 - tapOn:
@@ -47,7 +48,6 @@ appId: polygentic.bijouxCaregiverApp
     id: "home-greeting-label"
 
 # Verify home screen is in idle/waiting state (ready to receive offers)
-- scroll
 - assertVisible: ".*online.*|.*waiting.*|.*ready.*|.*Go Online.*|.*available.*"
 
 # Take screenshot of ready state

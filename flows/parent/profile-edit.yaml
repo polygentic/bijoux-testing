@@ -41,7 +41,6 @@ appId: polygentic.bijouxParentApp
 
 - takeScreenshot: profile-edit-form-top
 
-- scroll
 
 - assertVisible: ".*Save.*"
 

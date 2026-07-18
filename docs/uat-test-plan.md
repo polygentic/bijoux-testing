@@ -187,33 +187,116 @@ Comprehensive user acceptance testing for the Bijoux platform covering the paren
 | UAT-19.1 | Full Booking Lifecycle | All | `scripts/cross-app-booking-lifecycle.sh` | parent/login-valid, parent/quick-booking-submit, caregiver/login-valid, caregiver/accept-offer, caregiver/confirm-arrival, caregiver/start-session-verify, parent/confirm-session-start, caregiver/end-session, parent/confirm-session-end + API calls |
 | UAT-19.2 | Booking Cancellation — Cross-Platform | Parent + Admin | `scripts/cross-app-booking-cancel.sh` | parent/login-valid + API booking creation + API admin cancellation + parent/activity-history |
 | UAT-19.3 | Caregiver Approval — End-to-End | Caregiver + Admin | `scripts/cross-app-caregiver-approval.sh` | API BG check + API IDV + API approve + temporary maestro login flow for cg-pending |
+| UAT-19.4 | Real E2E Matching — Happy Path | All | `scripts/cross-app-real-matching-e2e.sh` | Real matching engine, no simulate |
+| UAT-19.5 | Multi-Caregiver Decline→Accept | All | `scripts/cross-app-decline-then-accept.sh` | Emma declines, Maria accepts |
+| UAT-19.6 | Multi-Parent Concurrent | All | `scripts/cross-app-multi-parent.sh` | Sarah + James book, Emma + Maria accept |
+| UAT-19.7 | Cancel After Match + Fee | Parent + CG | `scripts/cross-app-cancel-after-match.sh` | Cancel after IOMW, verify fee |
+
+### UAT-L2: Admin Portal — Cross-App Verification (Layer 2)
+
+Runs after Layer 1 E2E scripts to verify admin portal reflects iOS app activity.
+
+| ID | Test | File | Automation |
+|----|------|------|------------|
+| UAT-L2.1 | Dashboard KPIs | `admin/cross-app/verify-dashboard-kpis.md` | Chrome |
+| UAT-L2.2 | Dashboard Recent Activity | `admin/cross-app/verify-dashboard-activity.md` | Chrome |
+| UAT-L2.3 | Bookings Today Count | `admin/cross-app/verify-bookings-today.md` | Chrome |
+| UAT-L2.4 | Users List & Filter | `admin/cross-app/verify-users-list.md` | Chrome |
+| UAT-L2.5 | Parent Detail | `admin/cross-app/verify-parent-detail.md` | Chrome |
+| UAT-L2.6 | Credit History | `admin/cross-app/verify-credit-history.md` | Chrome |
+| UAT-L2.7 | Bookings List & Filter | `admin/cross-app/verify-bookings-list.md` | Chrome |
+| UAT-L2.8 | Booking Detail (Cross-App) | `admin/cross-app/verify-booking-detail.md` | Chrome |
+| UAT-L2.9 | Caregivers List & Pipeline | `admin/cross-app/verify-caregivers-list.md` | Chrome |
+| UAT-L2.10 | Caregiver Detail | `admin/cross-app/verify-caregiver-detail.md` | Chrome |
+| UAT-L2.11 | Sessions List & Filter | `admin/cross-app/verify-sessions-list.md` | Chrome |
+| UAT-L2.12 | Session Detail | `admin/cross-app/verify-session-detail.md` | Chrome |
+| UAT-L2.13 | Sessions Rating Filter | `admin/cross-app/verify-sessions-rating-filter.md` | Chrome |
+| UAT-L2.14 | Transactions List | `admin/cross-app/verify-transactions-list.md` | Chrome |
+| UAT-L2.15 | Transactions CSV Export | `admin/cross-app/verify-transactions-export.md` | Chrome |
+| UAT-L2.16 | Incidents List | `admin/cross-app/verify-incidents-list.md` | Chrome |
+| UAT-L2.17 | Incident Detail | `admin/cross-app/verify-incident-detail.md` | Chrome |
+| UAT-L2.18 | Pricing Configurations | `admin/cross-app/verify-pricing-list.md` | Chrome |
+| UAT-L2.19 | Audit Log | `admin/cross-app/verify-audit-log.md` | Chrome |
+| UAT-L2.20 | Audit Log CSV Export | `admin/cross-app/verify-audit-export.md` | Chrome |
+| UAT-L2.21 | Global Search | `admin/cross-app/verify-global-search.md` | Chrome |
+| UAT-L2.22 | Credit Balance | `admin/cross-app/verify-credit-balance.md` | Chrome |
+
+### UAT-L3: Admin Portal — Action Tests (Layer 3)
+
+Admin actions with setup, Chrome execution, and API/Maestro verification.
+
+| ID | Test | File | Automation |
+|----|------|------|------------|
+| UAT-L3.1 | Suspend Parent | `admin/actions/suspend-parent.md` | Chrome + Maestro + API |
+| UAT-L3.2 | Reactivate Parent | `admin/actions/reactivate-parent.md` | Chrome + API |
+| UAT-L3.3 | Issue Credit | `admin/actions/issue-credit.md` | Chrome + API |
+| UAT-L3.4 | Issue Refund | `admin/actions/issue-refund.md` | Chrome + API |
+| UAT-L3.5 | Cancel Booking | `admin/actions/cancel-booking.md` | Chrome + API |
+| UAT-L3.6 | Price Override | `admin/actions/price-override.md` | Chrome + API |
+| UAT-L3.7 | Approve Caregiver | `admin/actions/approve-caregiver.md` | Chrome + API |
+| UAT-L3.8 | Suspend Caregiver | `admin/actions/suspend-caregiver.md` | Chrome + Maestro + API |
+| UAT-L3.9 | Reactivate Caregiver | `admin/actions/reactivate-caregiver.md` | Chrome + API |
+| UAT-L3.10 | Generate Caregiver Invite | `admin/actions/invite-caregiver.md` | Chrome |
+| UAT-L3.11 | Initiate BG Check | `admin/actions/initiate-bg-check.md` | Chrome + API |
+| UAT-L3.12 | Initiate IDV | `admin/actions/initiate-idv.md` | Chrome + API |
+| UAT-L3.13 | Set BG/IDV Status | `admin/actions/set-bg-idv-status.md` | Chrome + API |
+| UAT-L3.14 | Force Complete Session | `admin/actions/force-complete-session.md` | Chrome + API |
+| UAT-L3.15 | Mark Session Disputed | `admin/actions/mark-disputed.md` | Chrome + API |
+| UAT-L3.16 | Create Market Pricing | `admin/actions/create-pricing.md` | Chrome + API |
+| UAT-L3.17 | Edit Market Pricing | `admin/actions/edit-pricing.md` | Chrome + API |
+| UAT-L3.18 | Resolve Incident | `admin/actions/resolve-incident.md` | Chrome + API |
+| UAT-L3.19 | Filter Sessions by Rating | `admin/actions/filter-sessions-rating.md` | Chrome |
+
+### UAT-L4: Admin API Tests (Layer 4)
+
+Pure API endpoint tests — no Chrome or simulators required.
+
+| ID | Test | File | Automation |
+|----|------|------|------------|
+| UAT-L4.1 | All 28 Admin Endpoints | `scripts/admin-api-tests.sh` | Bash + curl |
+
+### Layer 1 Checkpoints
+
+Integrated admin portal checks executed between iOS E2E phases.
+
+| ID | Test | File | Automation |
+|----|------|------|------------|
+| L1-CP.1 | Verify Booking Created | `admin/checkpoints/verify-booking-created.md` | Chrome |
+| L1-CP.2 | Verify Caregiver Matched | `admin/checkpoints/verify-caregiver-matched.md` | Chrome |
+| L1-CP.3 | Verify Session Completed | `admin/checkpoints/verify-session-completed.md` | Chrome |
+| L1-CP.4 | Verify Booking Cancelled | `admin/checkpoints/verify-booking-cancelled.md` | Chrome |
+| L1-CP.5 | Verify Offers Declined/Accepted | `admin/checkpoints/verify-offers-declined-accepted.md` | Chrome |
 
 ---
 
 ## Automation Coverage Summary
 
-| Category | Total Tests | Maestro | Chrome | Orchestration | Manual-Only |
-|----------|-------------|---------|--------|---------------|-------------|
-| Onboarding | 2 | 2 | — | — | — |
-| Auth - Login | 6 | 6 | — | — | — |
-| Auth - Signup | 6 | 6 | — | — | — |
-| Home & Nav | 5 | 5 | — | — | — |
-| Booking | 3 | 3 | — | — | — |
-| Matching & Session | 3 | 3 | — | — | — |
-| Profile | 10 | 10 | — | — | — |
-| Activity & History | 3 | 3 | — | — | — |
-| Admin Auth | 3 | — | 3 | — | — |
-| Admin Dashboard | 2 | — | 2 | — | — |
-| Admin Users | 6 | — | 6 | — | — |
-| Admin Caregivers | 7 | — | 7 | — | — |
-| Admin Bookings | 4 | — | 4 | — | — |
-| Admin Sessions | 4 | — | 4 | — | — |
-| Admin Financial | 2 | — | 2 | — | — |
-| Admin Trust | 3 | — | 3 | — | — |
-| Admin Audit/Settings | 5 | — | 5 | — | — |
-| Admin Search | 1 | — | 1 | — | — |
-| Cross-App | 3 | — | — | 3 | — |
-| **TOTAL** | **78** | **38** | **37** | **3** | **0** |
+| Category | Total Tests | Maestro | Chrome | Orchestration | API-Only | Manual-Only |
+|----------|-------------|---------|--------|---------------|----------|-------------|
+| Onboarding | 2 | 2 | — | — | — | — |
+| Auth - Login | 6 | 6 | — | — | — | — |
+| Auth - Signup | 6 | 6 | — | — | — | — |
+| Home & Nav | 5 | 5 | — | — | — | — |
+| Booking | 3 | 3 | — | — | — | — |
+| Matching & Session | 3 | 3 | — | — | — | — |
+| Profile | 10 | 10 | — | — | — | — |
+| Activity & History | 3 | 3 | — | — | — | — |
+| Admin Auth | 3 | — | 3 | — | — | — |
+| Admin Dashboard | 2 | — | 2 | — | — | — |
+| Admin Users | 6 | — | 6 | — | — | — |
+| Admin Caregivers | 7 | — | 7 | — | — | — |
+| Admin Bookings | 4 | — | 4 | — | — | — |
+| Admin Sessions | 4 | — | 4 | — | — | — |
+| Admin Financial | 2 | — | 2 | — | — | — |
+| Admin Trust | 3 | — | 3 | — | — | — |
+| Admin Audit/Settings | 5 | — | 5 | — | — | — |
+| Admin Search | 1 | — | 1 | — | — | — |
+| Cross-App (L1) | 7 | — | — | 7 | — | — |
+| L1 Checkpoints | 5 | — | 5 | — | — | — |
+| L2 Verification | 22 | — | 22 | — | — | — |
+| L3 Actions | 19 | 2 | 19 | — | — | — |
+| L4 API Tests | 1 | — | — | — | 1 | — |
+| **TOTAL** | **129** | **40** | **83** | **7** | **1** | **0** |
 
 ## Known Limitations
 
