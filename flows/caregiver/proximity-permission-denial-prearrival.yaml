@@ -1,0 +1,77 @@
+# jira: BA-302
+# uat: UAT-20.4 — Permission Denial at Arrival (Caregiver, part A: reach en-route)
+# Scenario part A: normal login → online → accept → IOMW → reach the en-route screen with the
+#   "I've Arrived" button visible. Location IS granted for this early flow (the caregiver app
+#   needs location to go online + match — a blanket withhold blocks the whole journey). The flow
+#   STOPS at en-route WITHOUT tapping "I've Arrived"; the orchestrator then revokes location TCC
+#   (which terminates the app) right before arrival, relaunches, and runs part B
+#   (proximity-permission-denial-arrival.yaml).
+# Pre: orchestrator runs sim_set_location NEAR + sim_grant_location (granted for the early flow).
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - cross-app
+  - proximity
+---
+# ═══ LOGIN ═══
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow While Using App"
+    optional: true
+- waitForAnimationToEnd
+- tapOn: "Get Started"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: "cg-maria@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Show password"
+- extendedWaitUntil:
+    visible:
+      id: "login-password-field"
+    timeout: 5000
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+- tapOn: "Hide password"
+- tapOn:
+    id: "login-submit-button"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible: "Home"
+
+# ═══ GO ONLINE (location is granted — matching needs it) ═══
+- tapOn:
+    text: ".*Go Online.*|.*Online.*"
+    optional: true
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR OFFER + ACCEPT ═══
+- extendedWaitUntil:
+    visible: "Accept"
+    timeout: 180000
+- tapOn: "Accept"
+- waitForAnimationToEnd
+
+# ═══ IOMW ═══
+- extendedWaitUntil:
+    visible: "I'm On My Way"
+    timeout: 15000
+- tapOn: "I'm On My Way"
+- waitForAnimationToEnd
+
+# ═══ REACH EN-ROUTE (STOP here — do NOT tap "I've Arrived") ═══
+# The orchestrator watches for this screenshot, then revokes location TCC (terminates the app)
+# right before arrival and launches part B.
+- extendedWaitUntil:
+    visible: "I've Arrived"
+    timeout: 30000
+- swipe:
+    direction: UP
+    duration: 500
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-cg-s4-enroute-ready

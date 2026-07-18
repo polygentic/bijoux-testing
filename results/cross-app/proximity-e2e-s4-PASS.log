@@ -1,0 +1,44 @@
+
+═══ STEP 1: Authenticate parent, caregiver (Maria), admin ═══
+  ✓ PASS: Parent token
+  ✓ PASS: Caregiver token
+  ✓ PASS: Admin token
+
+═══ STEP 2: Boot simulators ═══
+  ✓ PASS: Both simulators booted
+
+═══ STEP 3: SCENARIO 4: Permission denial AT ARRIVAL — revoke → inline error → grant → retry ═══
+  [db-reset] purging transactional rows (FK-safe order)…
+  [db-reset] re-seeding UAT baseline fixtures…
+  [db-reset] clean slate restored: 4bookings, 2sessions, 0offers
+  Reset daily limits: cancelled 2 completed test bookings from today
+  Caregiver S4 part-A flow started (PID: 38410)
+  Parent S4 flow started (PID: 38714)
+  ✓ PASS: S4: caregiver reached en-route (part-A) — revoking location before arrival
+./scripts/cross-app-proximity-e2e.sh: line 503: 38542 Terminated: 15          ( local i=0; while [[ $i -lt $rounds ]]; do
+done )
+./scripts/cross-app-proximity-e2e.sh: line 503: 38774 Terminated: 15          ( local i=0; while [[ $i -lt $rounds ]]; do
+done )
+  (coreloc) DENIED CoreLocation for polygentic.bijouxCaregiverApp on FF9AD47C-2351-420E-B795-135D0EF08ACB (locationd Authorization=1)
+  S4: CoreLocation DENIED at the address (NEAR) + hold-deny loop running — arrival must hit the permission-denied branch (no POST)
+  ✓ PASS: S4 arrived_at NULL before denied arrival (got: NULL)
+  Caregiver S4 part-B flow started (PID: 39436)
+  ✓ PASS: S4: PERMISSION-denied inline message ('Turn on location…') observed at arrival (no crash, no distance message)
+  ✓ PASS: S4 arrived_at STILL NULL during denial (no POST /arrived) (got: NULL)
+  ✓ PASS: S4 CoreLocation was genuinely DENIED (locationd Authorization=1) (got: 1)
+./scripts/cross-app-proximity-e2e.sh: line 503: 39413 Terminated: 15          ( local i=0; while [[ $i -lt $rounds ]]; do
+        _sim_redeny_fast "$udid" "$bundle_id";
+done )
+  (coreloc) RESTORED CoreLocation for polygentic.bijouxCaregiverApp on FF9AD47C-2351-420E-B795-135D0EF08ACB (locationd Authorization=2)
+  S4: CoreLocation granted back — part-B will retry 'I've Arrived' (arrival now succeeds at NEAR)
+  ✓ PASS: Caregiver S4 part-B flow (denial + grant + retry)
+  ✓ PASS: S4 arrival succeeded after grant+retry (arrived_at set: 2026-07-1619:12:38.409)
+  ✓ PASS: S4 booking lifecycle non-error (matched)
+
+══════════════════════════════════════════════════
+  PROXIMITY UAT E2E — RESULTS
+══════════════════════════════════════════════════
+  Scenario: --scenario=4
+  Failures: 0
+
+  OVERALL: PASS ✓

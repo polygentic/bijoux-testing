@@ -191,6 +191,27 @@ Comprehensive user acceptance testing for the Bijoux platform covering the paren
 | UAT-19.5 | Multi-Caregiver Decline→Accept | All | `scripts/cross-app-decline-then-accept.sh` | Emma declines, Maria accepts |
 | UAT-19.6 | Multi-Parent Concurrent | All | `scripts/cross-app-multi-parent.sh` | Sarah + James book, Emma + Maria accept |
 | UAT-19.7 | Cancel After Match + Fee | Parent + CG | `scripts/cross-app-cancel-after-match.sh` | Cancel after IOMW, verify fee |
+| UAT-19.8 | Proximity API Pre-flight | Backend | `scripts/proximity-api-preflight.sh` | Curl-level contract assertions (flag ON) |
+| UAT-19.9 | Proximity Full Lifecycle E2E | All | `scripts/cross-app-proximity-e2e.sh` | proximity-*.yaml (4 scenarios) |
+
+### UAT-20: Proximity Verification (Cross-App, flag ON)
+
+Two-simulator scenarios exercising the GPS co-location gates. Requires `PROXIMITY_CHECK_ENABLED=true` on the backend and both iOS apps built with proximity changes (#18 caregiver, #20 parent). Location + permission are controlled by `scripts/lib/sim-helpers.sh` (`sim_set_location` / `sim_grant_location`) outside the YAML; the orchestrator (`scripts/cross-app-proximity-e2e.sh`) sequences the two apps and calls the admin proximity-override API mid-run for scenario 2.
+
+| ID | Test | Apps | Script | Flows |
+|----|------|------|--------|-------|
+| UAT-20.1 | Proximity Happy Path — arrival + handoff start + handoff end pass silently | Caregiver + Parent | `scripts/cross-app-proximity-e2e.sh --scenario=1` | `caregiver/proximity-happy-path.yaml`, `parent/proximity-happy-path.yaml` |
+| UAT-20.2 | GPS Drift → Admin Override → Retry — start handoff fails; admin overrides; apps proceed | Caregiver + Parent + Admin API | `scripts/cross-app-proximity-e2e.sh --scenario=2` | `caregiver/proximity-drift-override.yaml`, `parent/proximity-drift-override.yaml` |
+| UAT-20.3 | One-Party Delayed → Poll Resolves — caregiver polls "Waiting", parent submits later, both pass | Caregiver + Parent | `scripts/cross-app-proximity-e2e.sh --scenario=3` | `caregiver/proximity-one-party-delay.yaml`, `parent/proximity-one-party-delay.yaml` |
+| UAT-20.4 | Permission Denial — caregiver denies location; inline error shown; grant + retry succeeds | Caregiver | `scripts/cross-app-proximity-e2e.sh --scenario=4` | `caregiver/proximity-permission-denial.yaml` |
+| UAT-20.5 | API Pre-flight (no simulator) — curl contract assertions for arrival/handoff + admin overrides + flag-OFF regression | Backend only | `scripts/proximity-api-preflight.sh` | — |
+
+**Coordinate sets** (anchored on `TEST_LAT`/`TEST_LNG` = 30.2672,-97.7431):
+- NEAR: both at `30.2672,-97.7431` (0 m from address, 0 m apart)
+- FAR: caregiver at `30.27,-97.7431` (~311 m north, > 100 m arrival threshold)
+- DRIFT: parent at `30.268,-97.7431` (~89 m north, > 50 m handoff threshold, < 100 m arrival threshold)
+
+**Status note (2026-07-15):** UAT-20.5 (API pre-flight) is GREEN — the backend proximity contract is fully validated with the flag ON. UAT-20.1–20.4 (two-simulator UI) are BLOCKED pending parent-app proximity changes (#20): the parent app on `bijoux-ios` main has no proximity-check submission, so the two-party start handoff cannot resolve via the UI and `verify/start` stays gated. The caregiver-side proximity UI is present (#18). Flip `PROXIMITY_CHECK_ENABLED` ON in staging only after parent #20 lands. YAML flows validate under maestro; the 7 flows parse via `yaml.safe_load_all` (Maestro files are two-document YAML — `safe_load` is not the correct validator).
 
 ### UAT-L2: Admin Portal — Cross-App Verification (Layer 2)
 

@@ -1,0 +1,143 @@
+# jira: BA-299
+# uat: UAT-20.1 — Proximity Happy Path (Caregiver)
+# Scenario: Both sims NEAR, PROXIMITY_CHECK_ENABLED=true, full lifecycle.
+# Pre: orchestrator runs sim_set_location NEAR + sim_grant_location before/after launch.
+# Mirrors caregiver/login-online-accept-session-end.yaml with proximity-aware waits.
+appId: polygentic.bijouxCaregiverApp
+tags:
+  - cross-app
+  - proximity
+---
+# ═══ LOGIN ═══
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+# Dismiss any OS location-permission dialog (fallback if sim_grant_location didn't pre-grant)
+- tapOn:
+    text: "Allow While Using App"
+    optional: true
+- waitForAnimationToEnd
+- tapOn: "Get Started"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: "cg-maria@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Show password"
+- extendedWaitUntil:
+    visible:
+      id: "login-password-field"
+    timeout: 5000
+- tapOn:
+    id: "login-password-field"
+- inputText: "Test1234!"
+- tapOn: "Hide password"
+- tapOn:
+    id: "login-submit-button"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible: "Home"
+
+# ═══ GO ONLINE ═══
+- tapOn:
+    text: ".*Go Online.*|.*Online.*"
+    optional: true
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR OFFER + ACCEPT ═══
+- extendedWaitUntil:
+    visible: "Accept"
+    timeout: 180000
+- tapOn: "Accept"
+- waitForAnimationToEnd
+
+# ═══ IOMW ═══
+- extendedWaitUntil:
+    visible: "I'm On My Way"
+    timeout: 15000
+- tapOn: "I'm On My Way"
+- waitForAnimationToEnd
+
+# ═══ ARRIVAL (GPS is NEAR → proximity passes silently) ═══
+- extendedWaitUntil:
+    visible: "I've Arrived"
+    timeout: 30000
+# The "I've Arrived" button sits BELOW the fold on the en-route screen (map + details
+# push it under the tab bar). Without scrolling it into view, Maestro taps its off-screen
+# coordinates which collide with the bottom tab bar and mis-navigate to Activity — so
+# confirmArrival() never runs and /arrived is never POSTed. Scroll it above the tab bar first.
+- swipe:
+    direction: UP
+    duration: 500
+- waitForAnimationToEnd
+- tapOn: "I've Arrived"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-cg-arrived
+
+# ═══ VERIFY START — proximity check runs silently ═══
+- extendedWaitUntil:
+    visible:
+      id: "arrived-verify-button"
+    timeout: 30000
+- swipe:
+    direction: UP
+    duration: 400
+- waitForAnimationToEnd
+- tapOn:
+    id: "arrived-verify-button"
+- waitForAnimationToEnd
+# Both NEAR → the two-party gate resolves quickly. If the parent hasn't submitted yet,
+# the caregiver shows proximity-waiting-label briefly; it clears when the parent submits.
+- extendedWaitUntil:
+    visible:
+      id: "verification-capture-button"
+    timeout: 60000
+- tapOn:
+    id: "verification-capture-button"
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR SESSION ACTIVE (parent must also verify) ═══
+- extendedWaitUntil:
+    visible:
+      id: "home-active-job-card"
+    timeout: 120000
+- tapOn:
+    id: "home-active-job-card"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-cg-session-active
+
+# ═══ END JOB ═══
+- extendedWaitUntil:
+    visible:
+      id: "in-progress-end-button"
+    timeout: 30000
+- tapOn:
+    id: "in-progress-end-button"
+- waitForAnimationToEnd
+- tapOn: "Confirm"
+- waitForAnimationToEnd
+
+# ═══ VERIFY END (proximity passes silently — both NEAR) ═══
+- extendedWaitUntil:
+    visible:
+      id: "verification-capture-button"
+    timeout: 30000
+- tapOn:
+    id: "verification-capture-button"
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR SESSION COMPLETE ═══
+- extendedWaitUntil:
+    visible: ".*Session Complete.*|.*Take Home.*|.*Well done.*"
+    timeout: 120000
+- takeScreenshot: results/cross-app/proximity-cg-session-complete
+- tapOn:
+    text: "Done"
+    optional: true
+- tapOn:
+    text: ".*Take Home.*|.*Dismiss.*"
+    optional: true
+- waitForAnimationToEnd

@@ -1,0 +1,39 @@
+
+═══ STEP 1: Authenticate parent, caregiver (Maria), admin ═══
+  ✓ PASS: Parent token
+  ✓ PASS: Caregiver token
+  ✓ PASS: Admin token
+
+═══ STEP 2: Boot simulators ═══
+  ✓ PASS: Both simulators booted
+
+═══ STEP 3: SCENARIO 2: DRIFT → admin override → retry ═══
+  [db-reset] purging transactional rows (FK-safe order)…
+  [db-reset] re-seeding UAT baseline fixtures…
+  [db-reset] clean slate restored: 4bookings, 2sessions, 0offers
+  Reset daily limits: cancelled 2 completed test bookings from today
+  Caregiver S2 flow started (PID: 41233)
+  Parent S2 flow started (PID: 41593)
+  ✓ PASS: S2 drift FAIL observed in the UI (caregiver '89 m apart' distance fail + parent blocked-handoff screenshots present)
+  (note) S2 direct backend probe did not win the key-race (last HTTP 200); the caregiver UI '89 m apart' fail is the authoritative backend-distance proof
+./scripts/cross-app-proximity-e2e.sh: line 243: 42536 Terminated: 15          ( while [[ ! -f "$S2_SEED_STOP" ]]; do
+done )
+  ✓ PASS: S2 admin override HTTP 200 (got: 200)
+  ✓ PASS: Admin proximity override sent (session 99282300-2053-438c-9546-0472532dac41) — apps should proceed
+/Users/polygentic/Documents/dev/bijoux-testing/scripts/lib/sim-helpers.sh: line 67: 41353 Terminated: 15          ( local i=0; while [[ $i -lt $rounds ]]; do
+done )
+/Users/polygentic/Documents/dev/bijoux-testing/scripts/lib/sim-helpers.sh: line 67: 41670 Terminated: 15          ( local i=0; while [[ $i -lt $rounds ]]; do
+done )
+  ✓ PASS: Caregiver S2 override flow (drift fail)
+  ✓ PASS: Parent S2 override flow (drift fail)
+  ✓ PASS: Caregiver S2 retry flow (override → active → complete)
+  ✓ PASS: Parent S2 retry flow (override → active → complete)
+  ✓ PASS: S2 booking completed after override + retry (got: completed)
+
+══════════════════════════════════════════════════
+  PROXIMITY UAT E2E — RESULTS
+══════════════════════════════════════════════════
+  Scenario: --scenario=2
+  Failures: 0
+
+  OVERALL: PASS ✓

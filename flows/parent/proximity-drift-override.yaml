@@ -1,0 +1,112 @@
+# jira: BA-300
+# uat: UAT-20.2 — Drift → Admin Override → Retry (Parent)
+# Scenario: Parent sim at DRIFT (~89m from caregiver). Handoff start proximity FAILS.
+#   The orchestrator calls the admin session proximity-override API, then the app re-enables
+#   the verify flow (proximity-waiting-label clears).
+# Pre: orchestrator runs sim_set_location (parent DRIFT) + sim_grant_location.
+appId: polygentic.bijouxParentApp
+tags:
+  - cross-app
+  - proximity
+---
+# ═══ LOGIN ═══
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Allow While Using App"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "onboarding-get-started-button"
+- waitForAnimationToEnd
+- tapOn: "you@example.com"
+- inputText: "parent-sarah@test.bijoux.app"
+- tapOn: "Welcome Back"
+- tapOn: "Enter your password"
+- inputText: "Test1234!"
+- tapOn: "Welcome Back"
+- tapOn:
+    id: "login-submit-button"
+- waitForAnimationToEnd
+# iOS may surface a "Save Password?" system sheet after a credential submit; it
+# overlays the booking form, so dismiss it before booking.
+- tapOn:
+    text: "Not Now"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible:
+    id: "home-greeting-label"
+
+# ═══ CREATE BOOKING ═══
+- tapOn:
+    id: "home-request-now-card"
+    optional: true
+- tapOn:
+    text: "Request Now"
+    optional: true
+- waitForAnimationToEnd
+# Re-dismiss the Save Password sheet if it (re)appears over the booking form.
+- tapOn:
+    text: "Not Now"
+    optional: true
+- tapOn:
+    text: "Duration"
+    optional: true
+- tapOn:
+    text: ".*Lily.*|.*Max.*"
+    optional: true
+- swipe:
+    direction: UP
+    duration: 400
+- waitForAnimationToEnd
+- tapOn:
+    id: "quick-booking-submit-button"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Capture"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "quick-booking-submit-button"
+    optional: true
+- waitForAnimationToEnd
+
+# ═══ WAIT FOR CAREGIVER ARRIVAL ═══
+- extendedWaitUntil:
+    visible: ".*Caregiver Has Arrived.*|.*Start Identity Verification.*"
+    timeout: 240000
+- takeScreenshot: results/cross-app/proximity-p-drift-caregiver-arrived
+
+# ═══ VERIFY START — proximity FAILS (parent at DRIFT) ═══
+# App behaviour: at DRIFT (>50 m handoff threshold) the parent's proximity gate first shows the
+# "Waiting for the other person…" overlay (proximity-waiting-label) while the caregiver hasn't
+# submitted; once both parties submit, the backend returns proximityFailed (too far) and the
+# parent STOPS polling, showing a "move closer … Retry" error on the verification cover. The
+# admin override (sent by the orchestrator) clears the gate SERVER-SIDE but the parent app has
+# stopped polling — so the parent must tap Retry (the capture button relabelled "Retry") to
+# re-submit; the now-overridden gate returns passed and the session proceeds.
+- tapOn: "Start Identity Verification"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 10000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+# Observe the DRIFT blocked-handoff state. NOTE: the backend CLEARS both parties' Redis
+# submissions on every distance fail ("both must resubmit"), so only the party that submits
+# SECOND sees the "N m apart" distance error — the FIRST submitter keeps polling behind the
+# "Waiting for the other person…" overlay. The parent, submitting first and re-polling, is normally
+# behind that overlay; a no-fix instead shows a "…together…Retry" inline message; and if it submits
+# second it shows "N m apart". Accept ANY of these blocked states (the caregiver's flow independently
+# shows the definitive "89 m apart" distance fail). Broadened to include the no-fix ("together") text.
+- extendedWaitUntil:
+    visible:
+      text: ".*Waiting for the other.*|.*move closer.*|.*apart.*|.*Retry.*|.*together.*|.*Turn on location.*"
+    timeout: 300000
+- takeScreenshot: results/cross-app/proximity-p-drift-fail
+# END OF THIS FLOW. The parent is parked on its blocked-handoff state. The orchestrator overrides
+# the start gate, re-anchors the sims to NEAR, then launches flows/parent/proximity-drift-retry.yaml
+# — a FRESH Maestro session — to drive the parent through verify → active → end → complete (a fresh
+# session converges reliably where the long in-session retry loop did not; see run_scenario_2).

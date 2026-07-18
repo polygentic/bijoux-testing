@@ -1,0 +1,76 @@
+# jira: BA-300
+# uat: UAT-20.2 — Drift → Admin Override → Retry (Parent, part B: post-override retry → complete)
+# Launched by the orchestrator as a FRESH Maestro session AFTER the admin start-proximity override
+# is applied AND the sims re-anchored to NEAR. The parent is parked behind the "Waiting for the
+# other person…" overlay or on a "Retry" verification cover. After the override, a Retry tap re-runs
+# the gate → passed (idempotent shortcut) → verifyStart; once the caregiver also verifies the
+# session goes In Progress. Drives through end → complete. Does NOT clearState (attaches to the
+# running app).
+appId: polygentic.bijouxParentApp
+tags:
+  - cross-app
+  - proximity
+---
+- waitForAnimationToEnd
+# Tap Retry until the blocked/fail state clears (each tap re-runs the now-overridden gate). A no-op
+# when the parent auto-resolved (poll passed) and no button is shown.
+- repeat:
+    times: 12
+    while:
+      visible: ".*Waiting for the other.*|.*move closer.*|.*apart.*|.*Retry.*|.*together.*|.*Turn on location.*"
+    commands:
+      - tapOn:
+          id: "verification-capture-button"
+          optional: true
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          notVisible: ".*Waiting for the other.*|.*move closer.*|.*apart.*"
+          timeout: 12000
+
+# ═══ SESSION ACTIVE — wait for In Progress (both verified) ═══
+- extendedWaitUntil:
+    visible: ".*In Progress.*|.*End Job.*"
+    timeout: 180000
+# Reach the ActiveSessionView (end button lives there, not on the Home card).
+- tapOn:
+    text: ".*In Progress.*"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "View Full Session"
+    timeout: 10000
+- tapOn: "View Full Session"
+- waitForAnimationToEnd
+- takeScreenshot: results/cross-app/proximity-p-drift-session-active
+- extendedWaitUntil:
+    visible:
+      id: "active-session-end-button"
+    timeout: 30000
+
+# ═══ END JOB ═══
+- tapOn:
+    id: "active-session-end-button"
+- waitForAnimationToEnd
+- tapOn:
+    id: "end-job-confirm-button"
+- waitForAnimationToEnd
+
+# ═══ VERIFY END ═══
+- extendedWaitUntil:
+    visible: "Capture"
+    timeout: 30000
+- tapOn: "Capture"
+- waitForAnimationToEnd
+
+# ═══ SESSION COMPLETE ═══
+- extendedWaitUntil:
+    visible: ".*Session Complete.*|.*How was your experience.*"
+    timeout: 120000
+- takeScreenshot: results/cross-app/proximity-p-drift-session-complete
+- tapOn:
+    id: "summary-rating-label"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    id: "summary-done-button"
+    optional: true
+- waitForAnimationToEnd

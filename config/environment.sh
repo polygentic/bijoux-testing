@@ -50,6 +50,19 @@ export TEST_ADDRESS="123 Main St, Austin, TX"
 export TEST_LAT="30.2672"
 export TEST_LNG="-97.7431"
 
+# --- Proximity anchor: the parent app's ACTUAL booked-address geocode ---
+# The parent's "Request Now" flow books the profile address ("100 Congress Ave") and the
+# PARENT APP CLIENT-GEOCODES that string at booking time — producing coordinates that differ
+# from the profile's stored address_lat/lng (TEST_LAT/LNG). Every "100 Congress Ave" booking
+# resolves deterministically to (30.2639922, -97.7447808) — verified 99/99 identical in the DB.
+# The backend arrival/handoff proximity checks compare the caregiver's GPS against THIS booking
+# coordinate, NOT TEST_LAT/LNG. TEST_LAT/LNG is 391 m away — beyond the 100 m arrival threshold —
+# so anchoring the sims on TEST_LAT/LNG made every UI arrival correctly FAIL proximity (arrived_at
+# stayed NULL). Proximity sims MUST be anchored on BOOKING_LAT/LNG. (Matching still uses TEST_LAT/LNG
+# for the caregiver's matching-location; that's fine — the matching distance gate is 60 mi.)
+export BOOKING_LAT="30.2639922"
+export BOOKING_LNG="-97.7447808"
+
 # --- Java (required by Maestro) ---
 if [[ -d "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" ]]; then
     export JAVA_HOME="/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home"
